@@ -46,31 +46,48 @@ launch a local one. So can Claude, Cursor, VS Code and the rest.
 
 ### It doesn't drown the agent in nulls
 
-A Sales Order has upwards of two hundred fields, nearly all empty. Serialising one as
-JSON costs three to five thousand tokens to say a customer ordered fourteen items.
-Orbit renders instead of serialising — on a realistic Sales Order that is **92% smaller**:
+A Sales Order has upwards of two hundred fields, nearly all empty, and its child tables
+carry eighty more each. Serialising one as JSON costs a couple of thousand tokens to say
+that a customer ordered twenty of something.
+
+Orbit renders instead of serialising. Measured on real ERPNext demo data with
+`bench --site your-site execute orbit.selftest.measure`, a Sales Order drops from ~1,840
+tokens to ~530 and a Sales Invoice from ~2,130 to ~670 — **around 70% less**, on your own
+documents rather than a benchmark:
 
 ```
-name: SO-00042
-customer: Meridian
-grand_total: 48250
-outstanding_amount: 0
+Sales Order SAL-ORD-2026-00001
 
-items: 14 rows
-  item_code | qty
-  --------- | ---
-  IT-0      | 1
-  IT-1      | 2
-  IT-2      | 3
-  ... 11 more rows
+name: SAL-ORD-2026-00001
+company: My Company (Demo)
+customer: Grant Plastics Ltd.
+transaction_date: 2026-02-19
+grand_total: 20000.0
+status: Completed
 
-(154 empty and 3 framework fields omitted - pass verbose: true to see all 163)
+items: 1 row
+  item_code | delivery_date | qty  | rate   | amount
+  --------- | ------------- | ---- | ------ | -------
+  SKU004    | 2026-02-19    | 20.0 | 1000.0 | 20000.0
+  (86 empty or unlisted columns hidden - name the fields you need)
+
+taxes: 0 rows
+
+(56 empty and 4 framework fields omitted - pass verbose: true to see all 124)
 ```
 
-Three rules do it: lists become tables so field names are written once instead of once
-per row; empty values are dropped; and **what was dropped is always stated**. That last
-line is what makes the first two safe — a model told what it cannot see will ask for it,
-where a model handed a silently trimmed document concludes the fields do not exist.
+Four rules do it:
+
+1. **Lists and child tables become tables**, so field names are written once instead of
+   once per row.
+2. **Empty values are dropped**, including cleared checkboxes. Numeric zeros are kept —
+   a zero outstanding amount is an answer.
+3. **Child tables show the columns their grid shows.** A Sales Order Item has eighty
+   fields; the desk's grid shows five, chosen by the people who use this site. Orbit
+   uses those, which is why the child table above is five columns and not eighty.
+4. **What was dropped is always stated.** This is what makes the other three safe — a
+   model told what it cannot see will ask for it, where a model handed a silently
+   trimmed document concludes the fields do not exist.
 
 ### It reads your customisations
 
@@ -195,6 +212,13 @@ error tells the model its request was wrong and it should try differently.
 
 ```bash
 bench --site your-site run-tests --app orbit
+
+# End to end, against real data on your own site. Read-only: it never calls a
+# write tool, so it is safe on production.
+bench --site your-site execute orbit.selftest.run
+
+# Reproduce the token figures above on your own documents.
+bench --site your-site execute orbit.selftest.measure
 ```
 
 The renderer's tests import nothing from frappe, so they also run standalone:

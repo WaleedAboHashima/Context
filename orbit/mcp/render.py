@@ -55,8 +55,18 @@ PLUMBING = frozenset(
 	}
 )
 
+# Additional noise in a *child* row. In a parent document "who owns this and when was
+# it changed" is a real question; on row 3 of an items table it is the same answer as
+# the parent's, repeated per row, and `name` is a hash nobody will ever look up.
+CHILD_PLUMBING = PLUMBING | frozenset({"name", "owner", "creation", "modified", "docstatus"})
+
 # Long free text is truncated rather than dropped: the first line usually carries it.
 MAX_TEXT = 280
+
+# A backstop for when no preferred columns are known. A Sales Order Item has eighty
+# fields; rendering all of them defeats the entire point of this module, and a reader
+# who needs the eighty-first can ask for the child DocType by name.
+MAX_TABLE_COLUMNS = 12
 
 # Widest a padded column gets before it stops helping and starts costing.
 MAX_COLUMN = 48
@@ -101,6 +111,7 @@ def render_document(
 	checkboxes: Iterable[str] = (),
 	verbose: bool = False,
 	child_row_limit: int = 5,
+	child_fields: dict[str, list[str]] | None = None,
 ) -> str:
 	"""One document as `field: value` lines.
 
@@ -109,6 +120,7 @@ def render_document(
 	"""
 	child_tables = set(child_tables)
 	checkboxes = set(checkboxes)
+	child_fields = child_fields or {}
 
 	lines: list[str] = []
 	tables: list[str] = []
@@ -121,7 +133,11 @@ def render_document(
 			continue
 
 		if key in child_tables or _is_row_list(value):
-			tables.append(_render_child_table(key, value, child_row_limit, checkboxes))
+			tables.append(
+				_render_child_table(
+					key, value, child_row_limit, checkboxes, child_fields.get(key), verbose
+				)
+			)
 			continue
 
 		if not verbose:
@@ -150,7 +166,12 @@ def render_document(
 
 
 def _render_child_table(
-	fieldname: str, value: Any, limit: int, checkboxes: set[str]
+	fieldname: str,
+	value: Any,
+	limit: int,
+	checkboxes: set[str],
+	preferred: list[str] | None = None,
+	verbose: bool = False,
 ) -> str:
 	"""A child table as a count, then its first rows.
 
@@ -166,7 +187,16 @@ def _render_child_table(
 	plural = "" if len(rows) == 1 else "s"
 	header = f"{fieldname}: {len(rows)} row{plural}"
 
-	body = render_rows(shown, checkboxes=checkboxes)
+	# The child DocType's own grid columns, when the caller could find them. That is
+	# what the humans who use this site chose to see in the same table, which is a far
+	# better answer than "all eighty fields" and costs nothing to obtain.
+	body = render_rows(
+		shown,
+		checkboxes=checkboxes,
+		preferred=preferred,
+		plumbing=CHILD_PLUMBING,
+		verbose=verbose,
+	)
 	indented = "\n".join(f"  {line}" for line in body.split("\n"))
 
 	remaining = len(rows) - len(shown)
@@ -180,6 +210,8 @@ def render_rows(
 	rows: list[dict[str, Any]],
 	checkboxes: Iterable[str] = (),
 	verbose: bool = False,
+	preferred: list[str] | None = None,
+	plumbing: frozenset[str] = PLUMBING,
 ) -> str:
 	"""Rows as a pipe-delimited table.
 
@@ -195,19 +227,41 @@ def render_rows(
 	columns: list[str] = []
 	for row in rows:
 		for key in row:
-			if not verbose and key in PLUMBING:
+			if not verbose and key in plumbing:
 				continue
 			if key not in columns:
 				columns.append(key)
 
 	if verbose:
 		useful = columns
+	elif preferred:
+		# The preferred columns the rows actually carry, in the order given, minus the
+		# ones empty in every row. A grid column that is blank all the way down is a
+		# header nobody needed, whether the grid chose it or the data did.
+		useful = [
+			column
+			for column in preferred
+			if column in columns and any(not _is_empty(row.get(column)) for row in rows)
+		]
+		# All preferred columns absent or blank would render an empty table, so fall
+		# back to what the rows do carry rather than show nothing.
+		if not useful:
+			useful = [
+				column
+				for column in columns
+				if any(not _is_empty(row.get(column)) for row in rows)
+			] or columns
 	else:
 		useful = [
 			column
 			for column in columns
 			if any(not _is_empty(row.get(column)) for row in rows)
 		]
+
+	capped = 0
+	if not verbose and len(useful) > MAX_TABLE_COLUMNS:
+		capped = len(useful) - MAX_TABLE_COLUMNS
+		useful = useful[:MAX_TABLE_COLUMNS]
 
 	if not useful:
 		return f"({len(rows)} rows, all fields empty)"
@@ -231,9 +285,14 @@ def render_rows(
 		*(line(cells) for cells in body),
 	]
 
-	dropped = len(columns) - len(useful)
-	if dropped:
-		rendered.append(f"({dropped} all-empty column{'' if dropped == 1 else 's'} hidden)")
+	dropped = len(columns) - len(useful) - capped
+	notes = []
+	if dropped > 0:
+		notes.append(f"{dropped} empty or unlisted column{'' if dropped == 1 else 's'}")
+	if capped:
+		notes.append(f"{capped} beyond the first {MAX_TABLE_COLUMNS}")
+	if notes:
+		rendered.append(f"({' and '.join(notes)} hidden - name the fields you need)")
 
 	return "\n".join(rendered)
 

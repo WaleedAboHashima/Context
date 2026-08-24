@@ -164,3 +164,37 @@ def render_meta(doctype: str, verbose: bool = False) -> str:
 			)
 
 	return "\n\n".join(sections)
+
+
+def child_grid_fields(doctype: str) -> dict[str, list[str]]:
+	"""For each child table, the columns its grid shows in the desk.
+
+	The same reasoning as `default_fields`, one level down, and it matters more here: a
+	Sales Order Item has around eighty fields, so rendering a child table in full costs
+	more than the parent document did and buries the three columns anybody wanted. The
+	grid's own `in_list_view` set is what the people who use this site chose to see in
+	this exact table.
+
+	A child DocType whose grid declares nothing usable falls back to an empty list, and
+	the renderer then applies its own column cap.
+	"""
+	grids: dict[str, list[str]] = {}
+
+	for field in frappe.get_meta(doctype).fields:
+		if field.fieldtype not in CONTAINER_FIELDTYPES or not field.options:
+			continue
+		try:
+			child = frappe.get_meta(field.options)
+		except Exception:
+			# A Table pointing at a DocType this site no longer has. The parent still
+			# renders; only its column choice falls back.
+			continue
+
+		columns = [
+			inner.fieldname
+			for inner in child.fields
+			if inner.in_list_view and inner.fieldtype not in LAYOUT_FIELDTYPES
+		]
+		grids[field.fieldname] = columns
+
+	return grids

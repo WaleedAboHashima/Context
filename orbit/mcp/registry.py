@@ -96,21 +96,31 @@ def _permitted_count(doctype: str, filters: list[list[Any]] | None) -> int | Non
 	"""A count that respects permissions.
 
 	`frappe.db.count` would be shorter and would ignore user permissions and match
-	conditions, which on a site where a salesperson only sees their own territory is
-	the difference between a true answer and a leak. Aggregating through `get_list`
-	keeps the same restrictions the list itself is under.
+	conditions, which on a site where a salesperson only sees their own territory is the
+	difference between a true answer and a leak. Aggregating through `get_list` keeps the
+	same restrictions the list itself is under.
+
+	The aggregate has to be expressed as `{"COUNT": "*"}`; the string form
+	`"count(name) as total"` is rejected outright by the query builder as an injection
+	risk. The returned key is read positionally rather than by name, because it is the
+	SQL the builder emitted (`COUNT(*)`) and not a name this code chose.
+
+	Returns None only when the DocType genuinely cannot be counted — a single, or a
+	virtual DocType with no table behind it. A real failure is raised, because a count
+	that quietly reports "not countable" when the query was simply wrong is worse than
+	no count at all: it reads as a fact about the DocType.
 	"""
-	try:
-		rows = frappe.get_list(
-			doctype,
-			filters=filters or [],
-			fields=["count(name) as total"],
-		)
-		return int(rows[0].get("total") or 0) if rows else 0
-	except Exception:
-		# Some DocTypes (singles, virtual) cannot be aggregated. A missing total is
-		# reported as unknown rather than guessed at.
+	meta = frappe.get_meta(doctype)
+	if meta.issingle:
 		return None
+
+	rows = frappe.get_list(doctype, filters=filters or [], fields=[{"COUNT": "*"}])
+	if not rows:
+		return 0
+
+	first = rows[0]
+	values = list(first.values()) if hasattr(first, "values") else []
+	return int(values[0]) if values else 0
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +213,17 @@ def _list_documents(policy: Policy, args: dict[str, Any]) -> str:
 
 	# The total is only worth a query when it can change the reader's conclusion: a
 	# partial page is by definition the last one.
-	total = _permitted_count(doctype, filters) if len(rows) == limit else start + len(rows)
+	# A full page might not be the last one, so the true total is worth a query. A
+	# partial page is by definition the end, and the total is arithmetic.
+	if len(rows) == limit:
+		try:
+			total = _permitted_count(doctype, filters)
+		except Exception:
+			# An unknown total is reported as unknown. Guessing one would turn a first
+			# page into a complete answer in the reader's mind.
+			total = None
+	else:
+		total = start + len(rows)
 
 	return (
 		render_pagination(len(rows), start, total)
@@ -218,7 +238,10 @@ def _count_documents(policy: Policy, args: dict[str, Any]) -> str:
 
 	total = _permitted_count(doctype, _filters(args.get("filters")))
 	if total is None:
-		return f"{doctype} cannot be counted directly - it is a single or virtual DocType."
+		return (
+			f"{doctype} is a single DocType - there is one record, not a countable list. "
+			f"Use frappe_get_document with name: \"{doctype}\"."
+		)
 	return f"{total} {doctype} document{'' if total == 1 else 's'} match."
 
 
@@ -237,6 +260,7 @@ def _get_document(policy: Policy, args: dict[str, Any]) -> str:
 		checkboxes=meta_module.checkbox_fields(doctype),
 		verbose=bool(args.get("verbose")),
 		child_row_limit=int(args.get("child_rows") or 5),
+		child_fields=meta_module.child_grid_fields(doctype),
 	)
 
 
@@ -303,7 +327,9 @@ def _create_document(policy: Policy, args: dict[str, Any]) -> str:
 	doc.insert()  # checks create permission, runs validations and mandatory checks
 
 	return f"Created {doctype} {doc.name} as a draft.\n\n" + render_document(
-		doc.as_dict(), child_tables=meta_module.child_table_fields(doctype)
+		doc.as_dict(),
+		child_tables=meta_module.child_table_fields(doctype),
+		child_fields=meta_module.child_grid_fields(doctype),
 	)
 
 
@@ -322,7 +348,11 @@ def _update_document(policy: Policy, args: dict[str, Any]) -> str:
 
 	return (
 		f"Updated {doctype} {name}. Changed: {', '.join(sorted(patch))}.\n\n"
-		+ render_document(doc.as_dict(), child_tables=meta_module.child_table_fields(doctype))
+		+ render_document(
+			doc.as_dict(),
+			child_tables=meta_module.child_table_fields(doctype),
+			child_fields=meta_module.child_grid_fields(doctype),
+		)
 	)
 
 

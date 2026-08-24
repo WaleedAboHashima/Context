@@ -30,7 +30,7 @@ import frappe
 from orbit import __version__
 
 from . import audit
-from .policy import Policy
+from .policy import OrbitDenied, Policy
 from .registry import BY_NAME, available
 
 # The revision this implementation was written against. A client asking for another is
@@ -59,7 +59,24 @@ def handle(message: dict[str, Any]) -> dict[str, Any] | None:
 	"""One JSON-RPC message in, at most one out.
 
 	Returns None for a notification, which the caller answers with an empty 202.
+
+	Nothing raises out of here. An exception escaping this function would reach the client
+	as an HTTP 500 and an HTML error page, which an MCP client reports to the user as
+	"the server is unreachable" — indistinguishable from a wrong URL or a dead site. A
+	switched-off Orbit and a missing permission are ordinary states and have to arrive as
+	readable JSON-RPC, not as a crash.
 	"""
+	try:
+		return _dispatch(message)
+	except Exception as exception:
+		request_id = message.get("id") if isinstance(message, dict) else None
+		if request_id is None:
+			return None
+		return _error(request_id, INTERNAL_ERROR, _explain(exception))
+
+
+def _dispatch(message: dict[str, Any]) -> dict[str, Any] | None:
+	"""The routing itself. Every exit is a value; every raise is caught above."""
 	if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
 		return _error(None, INVALID_REQUEST, "Expected a JSON-RPC 2.0 message.")
 
@@ -165,31 +182,26 @@ def _explain(exception: Exception) -> str:
 	"""
 	import re
 
-	known = (
-		frappe.PermissionError,
-		frappe.ValidationError,
-		frappe.DoesNotExistError,
-		frappe.DuplicateEntryError,
-		frappe.LinkValidationError,
-		frappe.MandatoryError,
-		frappe.AuthenticationError,
-		frappe.TimestampMismatchError,
-	)
-
-	messages = [str(part) for part in (frappe.local.message_log or []) if part]
+	# Entries in `message_log` are dicts, not strings — `str()` on one yields a Python
+	# repr, which is how a clean refusal turned into a wall of `__frappe_exc_id` noise.
+	details: list[str] = []
+	for entry in frappe.local.message_log or []:
+		if isinstance(entry, dict):
+			text = str(entry.get("message") or "")
+		else:
+			text = str(entry or "")
+		text = re.sub(r"\s+", " ", re.sub(r"<[^>]*>", " ", text)).strip()
+		if text:
+			details.append(text)
 	frappe.local.message_log = []
 
-	def clean(text: str) -> str:
-		try:
-			import json as _json
+	detail = " ".join(details).strip()
 
-			parsed = _json.loads(text)
-			text = str(parsed.get("message", text)) if isinstance(parsed, dict) else text
-		except Exception:
-			pass
-		return re.sub(r"\s+", " ", re.sub(r"<[^>]*>", " ", text)).strip()
-
-	detail = " ".join(clean(text) for text in messages).strip()
+	# Checked before the Frappe families below, because OrbitDenied subclasses
+	# ValidationError and would otherwise be reported as a failed validation rule. A
+	# policy refusal needs no prefix: its message already names the setting to change.
+	if isinstance(exception, OrbitDenied):
+		return detail or str(exception)
 
 	if isinstance(exception, frappe.PermissionError):
 		prefix = "Frappe refused this: the signed-in user lacks permission."
@@ -199,7 +211,9 @@ def _explain(exception: Exception) -> str:
 		prefix = "A record with that name already exists."
 	elif isinstance(exception, frappe.TimestampMismatchError):
 		prefix = "The document changed since it was read. Read it again and retry."
-	elif isinstance(exception, known):
+	elif isinstance(exception, frappe.AuthenticationError):
+		prefix = "Not authenticated."
+	elif isinstance(exception, frappe.ValidationError):
 		prefix = "Frappe refused to save this: a validation rule failed."
 	else:
 		frappe.log_error(title="Orbit: unhandled error in a tool call")
@@ -210,5 +224,6 @@ def _explain(exception: Exception) -> str:
 
 	if detail:
 		return f"{prefix} {detail}"
-	text = clean(str(exception))
+
+	text = re.sub(r"\s+", " ", re.sub(r"<[^>]*>", " ", str(exception))).strip()
 	return f"{prefix} {text}" if text else prefix

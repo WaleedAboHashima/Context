@@ -52,6 +52,38 @@ class TestRenderDocument(unittest.TestCase):
 		self.assertNotIn("IT-9", out)
 		self.assertIn("11 more rows", out)
 
+	def test_child_rows_drop_their_own_plumbing(self):
+		# owner/creation/modified/docstatus repeat the parent's answer on every row, and
+		# a child row's `name` is a hash nobody will look up.
+		out = render_document(
+			{
+				"name": "SO-1",
+				"items": [
+					{
+						"name": "ljtu2qj48p",
+						"owner": "a@b.com",
+						"creation": "2026-01-01",
+						"docstatus": 1,
+						"item_code": "SKU1",
+						"qty": 3,
+					}
+				],
+			},
+			child_tables={"items"},
+		)
+		self.assertIn("SKU1", out)
+		self.assertNotIn("ljtu2qj48p", out)
+		self.assertNotIn("a@b.com", out)
+
+	def test_child_grid_columns_are_used_when_given(self):
+		out = render_document(
+			{"name": "SO-1", "items": [{"item_code": "SKU1", "qty": 3, "gross_profit": 9.0}]},
+			child_tables={"items"},
+			child_fields={"items": ["item_code", "qty"]},
+		)
+		self.assertIn("SKU1", out)
+		self.assertNotIn("gross_profit", out)
+
 	def test_long_text_is_truncated_not_dropped(self):
 		out = render_document({"name": "X", "terms": "a" * 500})
 		self.assertIn("chars)", out)
@@ -85,7 +117,28 @@ class TestRenderRows(unittest.TestCase):
 	def test_all_empty_column_is_hidden_and_reported(self):
 		out = render_rows([{"name": "SO-1", "po_no": None}, {"name": "SO-2", "po_no": ""}])
 		self.assertNotIn("po_no", out)
-		self.assertIn("1 all-empty column hidden", out)
+		self.assertIn("1 empty or unlisted column hidden", out)
+
+	def test_preferred_columns_win_over_everything_present(self):
+		# The whole point of reading the child grid's own columns: an eighty-field row
+		# renders as the three columns the site chose to show.
+		rows = [{"item_code": "A", "qty": 2, "rate": 5.0, "warehouse": "W", "gross_profit": 1.0}]
+		out = render_rows(rows, preferred=["item_code", "qty", "rate"])
+		self.assertIn("item_code", out)
+		self.assertNotIn("warehouse", out)
+		self.assertNotIn("gross_profit", out)
+
+	def test_preferred_columns_absent_from_the_rows_fall_back(self):
+		# A grid declaring columns the query did not return must not render blank.
+		out = render_rows([{"item_code": "A"}], preferred=["nonexistent"])
+		self.assertIn("item_code", out)
+
+	def test_column_count_is_capped_and_the_cap_is_stated(self):
+		row = {f"field_{i}": i + 1 for i in range(30)}
+		out = render_rows([row])
+		self.assertIn("field_0", out)
+		self.assertNotIn("field_29", out)
+		self.assertIn("beyond the first 12", out)
 
 	def test_partly_populated_column_is_kept(self):
 		self.assertIn("PO-9", render_rows([{"name": "SO-1", "po_no": None}, {"name": "SO-2", "po_no": "PO-9"}]))
