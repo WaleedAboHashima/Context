@@ -1,0 +1,96 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-08-24 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "tool",
+  "outcome",
+  "reference_doctype",
+  "reference_name",
+  "duration_ms",
+  "error",
+  "arguments"
+ ],
+ "fields": [
+  {
+   "fieldname": "tool",
+   "fieldtype": "Data",
+   "label": "Tool",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "outcome",
+   "fieldtype": "Select",
+   "options": "Success\nRefused",
+   "label": "Outcome",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Data",
+   "label": "DocType",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Data",
+   "label": "Document",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "duration_ms",
+   "fieldtype": "Int",
+   "label": "Duration (ms)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Small Text",
+   "label": "Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "arguments",
+   "fieldtype": "Code",
+   "options": "JSON",
+   "label": "Arguments",
+   "read_only": 1,
+   "description": "Only recorded when 'Include arguments in the log' is enabled in Orbit Settings."
+  }
+ ],
+ "in_create": 1,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-08-24 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Orbit",
+ "name": "Orbit Audit Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "role": "System Manager"
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Auditor"
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

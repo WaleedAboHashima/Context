@@ -1,0 +1,155 @@
+{
+ "actions": [],
+ "creation": "2026-08-24 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "connection_section",
+  "enabled",
+  "endpoint_html",
+  "required_role",
+  "capability_section",
+  "capability_intro",
+  "allow_write",
+  "allow_submit",
+  "allow_delete",
+  "scope_section",
+  "allowed_doctypes",
+  "denied_doctypes",
+  "max_rows",
+  "audit_section",
+  "log_tool_calls",
+  "log_arguments"
+ ],
+ "fields": [
+  {
+   "fieldname": "connection_section",
+   "fieldtype": "Section Break",
+   "label": "Connection"
+  },
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": "0",
+   "description": "Off until you turn it on. While off, the MCP endpoint refuses every request."
+  },
+  {
+   "fieldname": "endpoint_html",
+   "fieldtype": "HTML",
+   "label": "Endpoint",
+   "options": "<p>Point your AI client at <code>/api/method/orbit.api.mcp</code> on this site. Authentication is this site's own: an API key pair, an OAuth token, or a session. Every call runs as the user behind that credential, under their own permissions.</p>"
+  },
+  {
+   "fieldname": "required_role",
+   "fieldtype": "Link",
+   "options": "Role",
+   "label": "Restrict to role",
+   "description": "If set, only users with this role may use Orbit at all. The narrowest control here, and the first one to reach for."
+  },
+  {
+   "fieldname": "capability_section",
+   "fieldtype": "Section Break",
+   "label": "What agents may do"
+  },
+  {
+   "fieldname": "capability_intro",
+   "fieldtype": "HTML",
+   "options": "<p>Reading is always allowed, bounded by each user's own permissions. The three below are separate on purpose: saving a draft, posting it to the ledger, and deleting it are different decisions with different consequences. A tool that is switched off is not advertised to the agent at all.</p>"
+  },
+  {
+   "fieldname": "allow_write",
+   "fieldtype": "Check",
+   "label": "Allow create and update",
+   "default": "0",
+   "description": "Drafts only. Creating never submits."
+  },
+  {
+   "fieldname": "allow_submit",
+   "fieldtype": "Check",
+   "label": "Allow submit and cancel",
+   "default": "0",
+   "description": "Submitting runs on_submit: it posts ledger entries and moves stock. Cancelling reverses that and leaves a permanent trail.",
+   "depends_on": "allow_write"
+  },
+  {
+   "fieldname": "allow_delete",
+   "fieldtype": "Check",
+   "label": "Allow delete",
+   "default": "0",
+   "description": "No undo. Prefer cancelling a submitted document over deleting it.",
+   "depends_on": "allow_write"
+  },
+  {
+   "fieldname": "scope_section",
+   "fieldtype": "Section Break",
+   "label": "Scope"
+  },
+  {
+   "fieldname": "allowed_doctypes",
+   "fieldtype": "Small Text",
+   "label": "Allowed DocTypes",
+   "description": "One per line, or comma separated. If set, these are the only DocTypes Orbit will touch at all - reads included. The strongest control available here."
+  },
+  {
+   "fieldname": "denied_doctypes",
+   "fieldtype": "Small Text",
+   "label": "Never write these DocTypes",
+   "description": "Added to a built-in list that already covers Server Script, Custom Field, User, DocType and the rest of the records that change how the site itself behaves."
+  },
+  {
+   "fieldname": "max_rows",
+   "fieldtype": "Int",
+   "label": "Max rows per call",
+   "default": "20",
+   "non_negative": 1,
+   "description": "A ceiling, not a suggestion. It stops an agent filling its own context with rows it did not need."
+  },
+  {
+   "fieldname": "audit_section",
+   "fieldtype": "Section Break",
+   "label": "Audit"
+  },
+  {
+   "fieldname": "log_tool_calls",
+   "fieldtype": "Check",
+   "label": "Log every tool call",
+   "default": "1",
+   "description": "Writes an Orbit Audit Log entry per call, refusals included. Refusals are the interesting half."
+  },
+  {
+   "fieldname": "log_arguments",
+   "fieldtype": "Check",
+   "label": "Include arguments in the log",
+   "default": "0",
+   "description": "Off by default: a tool call can carry customer data, and logging it puts a copy in a second place.",
+   "depends_on": "log_tool_calls"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-24 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Orbit",
+ "name": "Orbit Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 0,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
