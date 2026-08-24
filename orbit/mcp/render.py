@@ -84,6 +84,16 @@ def _is_empty(value: Any) -> bool:
 	return False
 
 
+def _is_cleared_checkbox(value: Any) -> bool:
+	"""A checkbox that is off.
+
+	Kept apart from `_is_empty` because the two disagree about zero on purpose: a zero
+	outstanding amount is an answer, and an unticked box is not. Only a field the caller
+	named as a checkbox is read this way.
+	"""
+	return value in (0, False, "0")
+
+
 def _scalar(value: Any) -> str:
 	"""One value, as short as it can be said."""
 	if value is None:
@@ -112,6 +122,7 @@ def render_document(
 	verbose: bool = False,
 	child_row_limit: int = 5,
 	child_fields: dict[str, list[str]] | None = None,
+	child_checkboxes: dict[str, Iterable[str]] | None = None,
 ) -> str:
 	"""One document as `field: value` lines.
 
@@ -121,6 +132,7 @@ def render_document(
 	child_tables = set(child_tables)
 	checkboxes = set(checkboxes)
 	child_fields = child_fields or {}
+	child_checkboxes = child_checkboxes or {}
 
 	lines: list[str] = []
 	tables: list[str] = []
@@ -135,7 +147,14 @@ def render_document(
 		if key in child_tables or _is_row_list(value):
 			tables.append(
 				_render_child_table(
-					key, value, child_row_limit, checkboxes, child_fields.get(key), verbose
+					key,
+					value,
+					child_row_limit,
+					# The *child* DocType's checkboxes. The parent's would be a different
+					# DocType's fieldnames, right only where the two happen to collide.
+					set(child_checkboxes.get(key, ())),
+					child_fields.get(key),
+					verbose,
 				)
 			)
 			continue
@@ -145,7 +164,7 @@ def render_document(
 				omitted_empty += 1
 				continue
 			# A cleared checkbox is the same information as an absent one.
-			if key in checkboxes and value in (0, False, "0"):
+			if key in checkboxes and _is_cleared_checkbox(value):
 				omitted_empty += 1
 				continue
 
@@ -224,6 +243,19 @@ def render_rows(
 
 	checkboxes = set(checkboxes)
 
+	def blank(row: dict[str, Any], column: str) -> bool:
+		"""Whether this cell carries information.
+
+		A column of nothing but unticked checkboxes is as empty as a column of nulls -
+		`is_return | 0` repeated down twenty rows is a header and a column of noise. It
+		reads as populated to `_is_empty`, though, because 0 is a real number elsewhere,
+		which is why the checkbox fieldnames have to be passed in and consulted here.
+		"""
+		value = row.get(column)
+		if _is_empty(value):
+			return True
+		return column in checkboxes and _is_cleared_checkbox(value)
+
 	columns: list[str] = []
 	for row in rows:
 		for key in row:
@@ -241,7 +273,7 @@ def render_rows(
 		useful = [
 			column
 			for column in preferred
-			if column in columns and any(not _is_empty(row.get(column)) for row in rows)
+			if column in columns and any(not blank(row, column) for row in rows)
 		]
 		# All preferred columns absent or blank would render an empty table, so fall
 		# back to what the rows do carry rather than show nothing.
@@ -249,13 +281,13 @@ def render_rows(
 			useful = [
 				column
 				for column in columns
-				if any(not _is_empty(row.get(column)) for row in rows)
+				if any(not blank(row, column) for row in rows)
 			] or columns
 	else:
 		useful = [
 			column
 			for column in columns
-			if any(not _is_empty(row.get(column)) for row in rows)
+			if any(not blank(row, column) for row in rows)
 		]
 
 	capped = 0

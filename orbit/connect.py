@@ -50,18 +50,34 @@ def framework_publishes_metadata() -> bool:
 
 
 def site_url() -> str:
-	"""The site's own origin, as the request saw it.
+	"""The site's own origin, as the *client* saw it.
 
-	Read from the request rather than from `site_config`, because a Frappe Cloud site
-	answers on both its `*.frappe.cloud` name and any custom domain, and the URL an
-	administrator needs is the one they are looking at.
+	The host is read from the request rather than from `site_config`, because a Frappe
+	Cloud site answers on both its `*.frappe.cloud` name and any custom domain, and the
+	URL an administrator needs is the one they are looking at.
+
+	The scheme cannot be read the same way. Frappe's production WSGI app is not wrapped
+	in `ProxyFix` — that happens only in `bench serve` — so behind nginx or any other TLS
+	terminator `frappe.request.scheme` is `http`, which is what the proxy speaks to
+	gunicorn and not what the browser or the MCP client spoke. Trusting it published
+	`resource_metadata="http://..."` in the `WWW-Authenticate` header of every HTTPS
+	site, and handed administrators an `http://` endpoint to paste into a client that
+	requires TLS: the one header this app exists to send, wrong on every real deployment.
+
+	`X-Forwarded-Proto` is the header the proxy sets to say what it was asked for, and is
+	what `frappe.utils.get_url` itself consults. It is trusted here for the same reason
+	Frappe trusts it — a request that reached the app at all came through the site's own
+	proxy.
 	"""
 	if getattr(frappe.local, "request", None):
 		from urllib.parse import urlparse
 
 		parsed = urlparse(frappe.request.url)
-		if parsed.scheme and parsed.netloc:
-			return f"{parsed.scheme}://{parsed.netloc}"
+		if parsed.netloc:
+			forwarded = (frappe.get_request_header("X-Forwarded-Proto") or "").split(",")[0].strip()
+			scheme = forwarded or parsed.scheme
+			if scheme:
+				return f"{scheme}://{parsed.netloc}"
 
 	return frappe.utils.get_url().rstrip("/")
 

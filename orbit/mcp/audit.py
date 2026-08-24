@@ -65,4 +65,11 @@ def record(
 		# describes, and a refused write is exactly the case where that happens.
 		frappe.db.commit()
 	except Exception:
-		frappe.log_error(title="Orbit: could not write audit log")
+		# Nested, because this is the fallback and it can fail too: a broken transaction
+		# takes the Error Log insert down with the audit row. Letting that escape would
+		# turn a tool call that worked into a protocol error, which is exactly the
+		# failure mode this module promises not to have.
+		try:
+			frappe.log_error(title="Orbit: could not write audit log")
+		except Exception:
+			pass

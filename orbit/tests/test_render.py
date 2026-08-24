@@ -84,6 +84,25 @@ class TestRenderDocument(unittest.TestCase):
 		self.assertIn("SKU1", out)
 		self.assertNotIn("gross_profit", out)
 
+	def test_child_table_uses_its_own_checkbox_fields(self):
+		out = render_document(
+			{"name": "SO-1", "items": [{"item_code": "SKU1", "qty": 3, "is_free_item": 0}]},
+			child_tables={"items"},
+			child_checkboxes={"items": {"is_free_item"}},
+		)
+		self.assertIn("SKU1", out)
+		self.assertNotIn("is_free_item", out)
+
+	def test_the_parents_checkbox_names_do_not_govern_child_rows(self):
+		# `is_return` is a Sales Invoice field. A child row that happens to carry the
+		# same fieldname is a different DocType's field and may not be a checkbox at all.
+		out = render_document(
+			{"name": "SI-1", "is_return": 0, "items": [{"item_code": "SKU1", "is_return": 0}]},
+			child_tables={"items"},
+			checkboxes={"is_return"},
+		)
+		self.assertIn("is_return", out.split("items:")[1])
+
 	def test_long_text_is_truncated_not_dropped(self):
 		out = render_document({"name": "X", "terms": "a" * 500})
 		self.assertIn("chars)", out)
@@ -145,6 +164,35 @@ class TestRenderRows(unittest.TestCase):
 
 	def test_a_value_cannot_forge_a_column_boundary(self):
 		self.assertIn("a/b", render_rows([{"name": "a|b"}]))
+
+	def test_a_column_of_cleared_checkboxes_is_hidden(self):
+		# The bug this prevents: `posa_is_offer | 0` repeated down every row of an
+		# items table. `_is_empty` reads 0 as populated - correctly, for `qty` - so a
+		# table can only drop the column if it is told which fields are checkboxes.
+		rows = [{"item_code": "A", "qty": 2, "is_free_item": 0}, {"item_code": "B", "qty": 0, "is_free_item": 0}]
+		out = render_rows(rows, checkboxes={"is_free_item"})
+		self.assertNotIn("is_free_item", out)
+		# The zero that is an answer stays, and the omission is still declared.
+		self.assertIn("qty", out)
+		self.assertIn("1 empty or unlisted column hidden", out)
+
+	def test_a_ticked_checkbox_keeps_its_column(self):
+		rows = [{"item_code": "A", "is_free_item": 0}, {"item_code": "B", "is_free_item": 1}]
+		self.assertIn("is_free_item", render_rows(rows, checkboxes={"is_free_item"}))
+
+	def test_a_checkbox_column_is_kept_when_not_declared_as_one(self):
+		# Same data, no `checkboxes` argument: 0 is a number and stays. The renderer
+		# must not start guessing that any all-zero column is a checkbox.
+		rows = [{"item_code": "A", "discount": 0}, {"item_code": "B", "discount": 0}]
+		self.assertIn("discount", render_rows(rows))
+
+	def test_preferred_column_of_cleared_checkboxes_falls_away(self):
+		# A grid that lists a checkbox column nobody ticked is the common case in
+		# ERPNext child tables, and it must not survive just because the grid named it.
+		rows = [{"item_code": "A", "qty": 2, "is_free_item": 0}]
+		out = render_rows(rows, checkboxes={"is_free_item"}, preferred=["item_code", "is_free_item"])
+		self.assertIn("item_code", out)
+		self.assertNotIn("is_free_item", out)
 
 	def test_empty_input(self):
 		self.assertEqual(render_rows([]), "(no rows)")

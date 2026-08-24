@@ -1,0 +1,12 @@
+# Bytecode. Compiled per-interpreter and per-machine: committing it puts one
+# developer's Python 3.14 cache into every clone and into the built package,
+# and turns every source change into a binary diff beside it.
+__pycache__/
+*.py[cod]
+
+# Build artefacts
+*.egg-info/
+build/
+dist/
+
+.DS_Store

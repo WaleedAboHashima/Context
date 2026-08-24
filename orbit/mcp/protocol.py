@@ -33,10 +33,17 @@ from . import audit
 from .policy import OrbitDenied, Policy
 from .registry import BY_NAME, available
 
-# The revision this implementation was written against. A client asking for another is
-# answered with ours rather than refused: the negotiation is meant to converge, and every
-# revision so far has been compatible for a server this simple.
+# The revision this implementation was written against, and the one it answers with when
+# the client asks for something it has never heard of.
 PROTOCOL_VERSION = "2025-06-18"
+
+# Revisions this server is willing to speak. Every one of them is satisfied by the same
+# three methods and the same result shapes - nothing Orbit does differs between them -
+# so agreeing to the client's revision costs nothing and refusing it costs the
+# connection. The spec is explicit that a client which does not support the version it
+# gets back SHOULD disconnect, so answering "2025-06-18" to a client that opened with
+# "2024-11-05" is a hang-up, not a negotiation.
+SUPPORTED_PROTOCOL_VERSIONS = frozenset({"2024-11-05", "2025-03-26", "2025-06-18"})
 
 SERVER_INFO = {"name": "orbit", "version": __version__}
 
@@ -78,7 +85,11 @@ def handle(message: dict[str, Any]) -> dict[str, Any] | None:
 def _dispatch(message: dict[str, Any]) -> dict[str, Any] | None:
 	"""The routing itself. Every exit is a value; every raise is caught above."""
 	if not isinstance(message, dict) or message.get("jsonrpc") != "2.0":
-		return _error(None, INVALID_REQUEST, "Expected a JSON-RPC 2.0 message.")
+		# The id is echoed when the message carried one. A client matches replies to
+		# requests by id; a null id inside a batch is a reply it cannot attribute, so
+		# the request it belongs to never completes.
+		request_id = message.get("id") if isinstance(message, dict) else None
+		return _error(request_id, INVALID_REQUEST, "Expected a JSON-RPC 2.0 message.")
 
 	method = message.get("method")
 	request_id = message.get("id")
@@ -89,10 +100,12 @@ def _dispatch(message: dict[str, Any]) -> dict[str, Any] | None:
 		return None
 
 	if method == "initialize":
+		requested = params.get("protocolVersion")
+		agreed = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else PROTOCOL_VERSION
 		return _result(
 			request_id,
 			{
-				"protocolVersion": PROTOCOL_VERSION,
+				"protocolVersion": agreed,
 				"capabilities": {"tools": {"listChanged": False}},
 				"serverInfo": SERVER_INFO,
 				"instructions": (
@@ -138,6 +151,11 @@ def _call(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 			is_error=True,
 		)
 
+	# Anything already in the message log belongs to an earlier call in this batch.
+	# `_explain` reads the log to build its one sentence, so a leftover message would
+	# be attached to whichever call fails next and read as part of its refusal.
+	frappe.local.message_log = []
+
 	started = time.monotonic()
 	try:
 		text = tool.handler(policy, arguments)
@@ -150,10 +168,12 @@ def _call(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 
 	except Exception as exception:
 		elapsed = int((time.monotonic() - started) * 1000)
-		message = _explain(exception)
 
-		# The work is rolled back; the record that it was attempted is not.
+		# The work is rolled back; the record that it was attempted is not. This runs
+		# before `_explain`, which writes an unexpected error to the site's Error Log -
+		# a write of its own, and one the rollback would be entitled to discard.
 		frappe.db.rollback()
+		message = _explain(exception)
 		if policy.log_tool_calls:
 			audit.record(
 				name, arguments, "Refused", elapsed, error=message, log_arguments=policy.log_arguments

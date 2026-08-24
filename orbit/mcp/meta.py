@@ -198,3 +198,29 @@ def child_grid_fields(doctype: str) -> dict[str, list[str]]:
 		grids[field.fieldname] = columns
 
 	return grids
+
+
+def child_checkbox_fields(doctype: str) -> dict[str, set[str]]:
+	"""For each child table, which of its fields are checkboxes.
+
+	The renderer drops a column of nothing but unticked boxes, and it can only tell an
+	unticked box from a genuine zero if it is told which fields are boxes. `is_free_item`
+	sitting at 0 down every row of an items table is a header and twenty noughts;
+	`qty` at 0 is a fact. The parent's checkbox set cannot answer this - a child row is a
+	different DocType with different fieldnames.
+	"""
+	boxes: dict[str, set[str]] = {}
+
+	for field in frappe.get_meta(doctype).fields:
+		if field.fieldtype not in CONTAINER_FIELDTYPES or not field.options:
+			continue
+		try:
+			child = frappe.get_meta(field.options)
+		except Exception:
+			continue
+
+		boxes[field.fieldname] = {
+			inner.fieldname for inner in child.fields if inner.fieldtype == "Check"
+		}
+
+	return boxes

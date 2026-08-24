@@ -154,11 +154,16 @@ def _search_doctypes(policy: Policy, args: dict[str, Any]) -> str:
 
 	limit = policy.clamp_limit(args.get("limit") or 40)
 	rows = []
+	truncated = False
 	for row in candidates:
-		if len(rows) >= limit:
-			break
 		if not frappe.has_permission(row["name"], "read"):
 			continue
+		if len(rows) >= limit:
+			# One permitted match past the limit is all it takes to know the list was
+			# cut. Counting the rest would mean a permission check per DocType on a
+			# site with two thousand of them, to refine a number nobody needs exactly.
+			truncated = True
+			break
 		rows.append(row)
 
 	if not rows:
@@ -169,8 +174,19 @@ def _search_doctypes(policy: Policy, args: dict[str, Any]) -> str:
 			"Try a shorter keyword, or omit it to see what is available."
 		)
 
+	# "20 DocTypes this user can read" is a false statement when six hundred matched
+	# and twenty were shown. An agent reads it as the answer and stops looking.
+	heading = (
+		f"The first {len(rows)} DocTypes this user can read - there are more. "
+		"Narrow the keyword, or pass a module. A higher limit helps only up to "
+		f"this site's ceiling of {policy.max_rows} rows per call."
+		if truncated
+		else f"{len(rows)} DocTypes this user can read."
+	)
+
 	return (
-		f"{len(rows)} DocTypes this user can read.\n\n"
+		heading
+		+ "\n\n"
 		+ render_rows(rows)
 		+ "\n\nis_submittable=1 means documents move through draft, submitted and cancelled. "
 		"istable=1 means the DocType is a child table, reached through its parent rather than directly."
@@ -188,6 +204,15 @@ def _describe_doctype(policy: Policy, args: dict[str, Any]) -> str:
 def _list_documents(policy: Policy, args: dict[str, Any]) -> str:
 	doctype = args["doctype"]
 	policy.assert_in_scope(doctype)
+
+	# A single has no table to select from: `get_list` raises a bare ProgrammingError,
+	# which reaches the model as "an unexpected error, nothing to retry differently" -
+	# the one thing that is not true here, because there is a tool that works.
+	if frappe.get_meta(doctype).issingle:
+		return (
+			f"{doctype} is a single DocType - there is one record, not a list. "
+			f'Use frappe_get_document with name: "{doctype}".'
+		)
 
 	filters = _filters(args.get("filters"))
 	fields = args.get("fields") or meta_module.default_fields(doctype)
@@ -261,6 +286,7 @@ def _get_document(policy: Policy, args: dict[str, Any]) -> str:
 		verbose=bool(args.get("verbose")),
 		child_row_limit=int(args.get("child_rows") or 5),
 		child_fields=meta_module.child_grid_fields(doctype),
+		child_checkboxes=meta_module.child_checkbox_fields(doctype),
 	)
 
 
@@ -281,12 +307,14 @@ def _run_report(policy: Policy, args: dict[str, Any]) -> str:
 	if not rows:
 		return (
 			f"{report_name} returned no rows. Its filters are usually mandatory - "
-			f"company and a date range at minimum. Columns: {_column_names(columns)}."
+			f"company and a date range at minimum. Columns: {', '.join(_column_names(columns))}."
 		)
 
 	limit = policy.clamp_limit(args.get("limit"))
 	shown = rows[:limit]
-	names = _column_names(columns).split(", ")
+	# Not `_column_names(...).split(", ")`: a label may contain a comma ("ACME, Inc."),
+	# and splitting one back apart shifted every column after it onto the wrong values.
+	names = _column_names(columns)
 
 	normalized = []
 	for row in shown:
@@ -304,7 +332,12 @@ def _run_report(policy: Policy, args: dict[str, Any]) -> str:
 	)
 
 
-def _column_names(columns: list[Any]) -> str:
+def _column_names(columns: list[Any]) -> list[str]:
+	"""A report's column labels, in order.
+
+	A list rather than a joined string, because the caller maps positional row cells
+	onto these by index and a label is free to contain the separator.
+	"""
 	names = []
 	for column in columns:
 		if isinstance(column, str):
@@ -313,7 +346,7 @@ def _column_names(columns: list[Any]) -> str:
 			names.append(str(column.get("label") or column.get("fieldname") or "?"))
 		else:
 			names.append(str(getattr(column, "label", "?")))
-	return ", ".join(names) if names else "(none reported)"
+	return names or ["(none reported)"]
 
 
 def _create_document(policy: Policy, args: dict[str, Any]) -> str:
@@ -329,7 +362,9 @@ def _create_document(policy: Policy, args: dict[str, Any]) -> str:
 	return f"Created {doctype} {doc.name} as a draft.\n\n" + render_document(
 		doc.as_dict(),
 		child_tables=meta_module.child_table_fields(doctype),
+		checkboxes=meta_module.checkbox_fields(doctype),
 		child_fields=meta_module.child_grid_fields(doctype),
+		child_checkboxes=meta_module.child_checkbox_fields(doctype),
 	)
 
 
@@ -351,7 +386,9 @@ def _update_document(policy: Policy, args: dict[str, Any]) -> str:
 		+ render_document(
 			doc.as_dict(),
 			child_tables=meta_module.child_table_fields(doctype),
+			checkboxes=meta_module.checkbox_fields(doctype),
 			child_fields=meta_module.child_grid_fields(doctype),
+			child_checkboxes=meta_module.child_checkbox_fields(doctype),
 		)
 	)
 
