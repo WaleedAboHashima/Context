@@ -11,7 +11,7 @@ Running inside the bench, this is nearly free: `frappe.get_meta` is already cach
 already merges Custom Fields and Property Setters into the picture. An out-of-process
 client has to fetch the DocType record over HTTP and needs read permission on `DocType`
 to do it — a permission a tightly-scoped agent user should not have. Being in-process
-removes that whole problem, and it is the strongest argument for this variant of Orbit
+removes that whole problem, and it is the strongest argument for this variant of Context
 over the standalone one.
 """
 
@@ -150,7 +150,7 @@ def render_meta(doctype: str, verbose: bool = False) -> str:
 		sections.append("Required to create:\n" + "\n".join(describe(f) for f in required))
 	if listed:
 		sections.append(
-			"Shown in the list view (Orbit's default fields):\n"
+			"Shown in the list view (Context's default fields):\n"
 			+ "\n".join(describe(f) for f in listed)
 		)
 	if rest:

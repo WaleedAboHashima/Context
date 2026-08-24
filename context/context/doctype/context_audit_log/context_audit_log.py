@@ -4,5 +4,5 @@
 from frappe.model.document import Document
 
 
-class OrbitAuditLog(Document):
+class ContextAuditLog(Document):
 	pass

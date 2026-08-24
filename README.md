@@ -1,4 +1,4 @@
-# Orbit
+# Context
 
 Connect any AI agent to your **Frappe** or **ERPNext** site.
 
@@ -7,8 +7,8 @@ other MCP client. The agent can then read your records, run your reports, and �
 you allow it — draft and submit documents.
 
 ```bash
-bench get-app https://github.com/WaleedAboHashima/orbit
-bench --site your-site install-app orbit
+bench get-app https://github.com/WaleedAboHashima/Context
+bench --site your-site install-app context
 ```
 
 **Frappe v14 and up.** Browser sign-in needs **v16**, which is where Frappe began
@@ -16,13 +16,13 @@ publishing OAuth metadata — on v14 and v15 everything else works, but connecti
 sending an API key header, which Claude Code and Cursor accept and Claude Desktop and
 ChatGPT do not. The Connect dialog tells you which situation you are in.
 
-Then, in the desk: **Orbit Settings → Enabled → Connect your AI**.
+Then, in the desk: **Context Settings → Enabled → Connect your AI**.
 
 That button shows you the URL, tells you what agents are currently allowed to do on this
 site, and gives you the exact thing to paste into Claude, ChatGPT, Cursor or Claude Code.
 
 ```
-https://your-site.com/api/method/orbit.api.mcp
+https://your-site.com/api/method/context.api.mcp
 ```
 
 That's the whole integration. No API keys to mint and hand around, no local software to
@@ -36,7 +36,7 @@ what the warehouse clerk sees.
 
 That works because Frappe already is an OAuth 2.1 provider: v16 publishes
 `/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`,
-supports PKCE, and accepts dynamic client registration, all on by default. Orbit does not
+supports PKCE, and accepts dynamic client registration, all on by default. Context does not
 reimplement any of it. Its entire contribution to the flow is one header — an
 unauthenticated request gets `401` with
 `WWW-Authenticate: Bearer resource_metadata="..."`, which is what tells a client the site
@@ -51,7 +51,7 @@ affect every OAuth client, not just this app.
 
 ## Why install this instead of a local MCP server
 
-There is a standalone Node version of Orbit that runs on your own machine. It works, and
+There is a standalone Node version of Context that runs on your own machine. It works, and
 developers may prefer it. This one is better for everyone else, for four reasons:
 
 **Nobody has to handle secrets.** Authentication is your site's own — an OAuth token or a
@@ -77,8 +77,8 @@ A Sales Order has upwards of two hundred fields, nearly all empty, and its child
 carry eighty more each. Serialising one as JSON costs a couple of thousand tokens to say
 that a customer ordered twenty of something.
 
-Orbit renders instead of serialising. Measured on real ERPNext demo data with
-`bench --site your-site execute orbit.selftest.measure`, a Sales Order drops from ~1,840
+Context renders instead of serialising. Measured on real ERPNext demo data with
+`bench --site your-site execute context.selftest.measure`, a Sales Order drops from ~1,840
 tokens to ~530 and a Sales Invoice from ~2,130 to ~670 — **around 70% less**, on your own
 documents rather than a benchmark:
 
@@ -110,7 +110,7 @@ Four rules do it:
 2. **Empty values are dropped**, including cleared checkboxes. Numeric zeros are kept —
    a zero outstanding amount is an answer.
 3. **Child tables show the columns their grid shows.** A Sales Order Item has eighty
-   fields; the desk's grid shows five, chosen by the people who use this site. Orbit
+   fields; the desk's grid shows five, chosen by the people who use this site. Context
    uses those, which is why the child table above is five columns and not eighty.
 4. **What was dropped is always stated.** This is what makes the other three safe — a
    model told what it cannot see will ask for it, where a model handed a silently
@@ -118,7 +118,7 @@ Four rules do it:
 
 ### It reads your customisations
 
-Nothing about ERPNext is hardcoded. Orbit asks `frappe.get_meta` what fields exist, what
+Nothing about ERPNext is hardcoded. Context asks `frappe.get_meta` what fields exist, what
 is mandatory, what Link fields point at, and which fields your list view shows — and uses
 that last one to choose sensible defaults. A site with forty custom fields on Sales Order
 works exactly as well as a fresh install.
@@ -126,7 +126,7 @@ works exactly as well as a fresh install.
 ### It turns errors into one sentence
 
 Frappe answers a rejected write with a Python traceback. Forwarded to an agent that costs
-a thousand tokens and tells it nothing it can act on. Orbit keeps the part that matters
+a thousand tokens and tells it nothing it can act on. Context keeps the part that matters
 and sends the traceback to your Error Log instead:
 
 ```
@@ -143,7 +143,7 @@ the agent's context before the conversation started.
 
 | Tool | |
 | --- | --- |
-| `frappe_whoami` | Who Orbit is acting as, and what it may do. |
+| `frappe_whoami` | Who Context is acting as, and what it may do. |
 | `frappe_search_doctypes` | Find record types by keyword — only those the user can read. |
 | `frappe_describe_doctype` | Fields, types, link targets, what is mandatory. |
 | `frappe_list_documents` | Filter, sort, page. Always reports the true total. |
@@ -162,13 +162,13 @@ the agent's context before the conversation started.
 
 Connecting an agent to a production ERP deserves more than hoping it behaves.
 
-**Installing changes nothing.** Orbit adds no assets, no boot payload, no document hooks
+**Installing changes nothing.** Context adds no assets, no boot payload, no document hooks
 and no scheduled jobs. It is one endpoint and two DocTypes, and every switch is off until
 an administrator turns it on.
 
 **Frappe's permissions are the permission model.** There is no `ignore_permissions` in
 this app and no service account. Reads go through `frappe.get_list`, writes through the
-document API, and each document's `check_permission` is called explicitly. Orbit only ever
+document API, and each document's `check_permission` is called explicitly. Context only ever
 subtracts.
 
 **Three switches, not one.** Saving a draft, posting it to the ledger, and deleting it are
@@ -181,7 +181,7 @@ in the agent's tool list at all. It cannot be tempted by a tool it cannot see.
 `DocType`, `User`, `Role`, `Webhook` and the rest of the records that change what the site
 *does* — as opposed to its business data — are refused regardless of settings.
 
-**Everything is logged.** Every tool call becomes an Orbit Audit Log entry, refusals
+**Everything is logged.** Every tool call becomes an Context Audit Log entry, refusals
 included — refusals being the interesting half. The log is read-only in the desk and
 written with elevated permission, so the agent whose actions it records cannot edit it.
 Arguments are logged only if you opt in, because a tool call can carry customer data.
@@ -192,16 +192,16 @@ Arguments are logged only if you opt in, because a tool call can carry customer 
 
 ## Settings
 
-**Orbit Settings** (Single, System Manager only):
+**Context Settings** (Single, System Manager only):
 
 | | |
 | --- | --- |
 | Enabled | Off on install. While off, the endpoint refuses everything. |
-| Restrict to role | Only users with this role may use Orbit at all. |
+| Restrict to role | Only users with this role may use Context at all. |
 | Allow create and update | Drafts only. |
 | Allow submit and cancel | Posts to the ledger; leaves a permanent trail. |
 | Allow delete | No undo. |
-| Allowed DocTypes | If set, the only DocTypes Orbit touches — reads included. |
+| Allowed DocTypes | If set, the only DocTypes Context touches — reads included. |
 | Never write these DocTypes | Added to the built-in list. |
 | Max rows per call | Default 20. A ceiling on how much context one call can consume. |
 | Log every tool call | On by default. |
@@ -212,13 +212,13 @@ Arguments are logged only if you opt in, because a tool call can carry customer 
 ## Connecting a client
 
 **Claude Code / Claude Desktop / Cursor** — add a remote MCP server pointing at
-`https://your-site.com/api/method/orbit.api.mcp`.
+`https://your-site.com/api/method/context.api.mcp`.
 
 **ChatGPT** — Settings → Apps → Advanced → Developer mode, then add the same URL as a
 custom connector.
 
-**Checking it works** — open `https://your-site.com/api/method/orbit.health` while signed
-in. It reports the user, whether Orbit is on, and which tools are currently advertised.
+**Checking it works** — open `https://your-site.com/api/method/context.health` while signed
+in. It reports the user, whether Context is on, and which tools are currently advertised.
 That answers "is the connector broken or is my URL wrong" without speaking JSON-RPC by
 hand.
 
@@ -226,32 +226,71 @@ hand.
 
 ## Protocol notes
 
-Orbit implements MCP's Streamable HTTP transport as a single POST endpoint: `initialize`,
+Context implements MCP's Streamable HTTP transport as a single POST endpoint: `initialize`,
 `ping`, `tools/list`, `tools/call`, and JSON-RPC batches. `GET` returns 405 — every tool
 returns a complete result, so there is nothing to stream and a silent SSE channel would be
 a moving part with no purpose.
 
 Tool failures come back as a successful result with `isError`, not as a JSON-RPC error.
-The distinction matters: a protocol error tells the client Orbit is broken, while a tool
+The distinction matters: a protocol error tells the client Context is broken, while a tool
 error tells the model its request was wrong and it should try differently.
+
+## Upgrading from v0.1.x
+
+v0.2.0 renamed the app, its module and both DocTypes. A patch moves the data — your
+settings and your whole audit trail survive — but it cannot run until the bench knows
+the app by its new name, because Frappe loads every installed app's hooks before it
+reaches any patch. Do these in order:
+
+```bash
+# 1. rename the app directory and re-register it
+mv apps/orbit apps/context
+sed -i 's/^orbit$/context/' sites/apps.txt
+./env/bin/pip uninstall -y orbit && ./env/bin/pip install -e apps/context --no-deps
+
+# 2. point the site at the new name. The list Frappe actually reads on boot is a
+#    global, not site_config.json - miss it and migrate fails with
+#    "No module named 'orbit'" before any patch runs.
+bench --site your-site mariadb
+```
+```sql
+UPDATE tabDefaultValue SET defvalue = REPLACE(defvalue, '"orbit"', '"context"')
+  WHERE defkey = 'installed_apps';
+UPDATE `tabInstalled Application` SET app_name = 'context' WHERE app_name = 'orbit';
+UPDATE `tabModule Def`            SET app_name = 'context' WHERE app_name = 'orbit';
+```
+```bash
+# 3. edit installed_apps in sites/your-site/site_config.json, then
+bench --site your-site clear-cache
+bench --site your-site migrate
+```
+
+The MCP endpoint moves with it, so reconnect any client that is already pointed at the
+old URL:
+
+```
+https://your-site.com/api/method/context.api.mcp
+```
+
+---
 
 ## Development
 
 ```bash
-bench --site your-site run-tests --app orbit
+bench --site your-site run-tests --app context
 
 # End to end, against real data on your own site. Read-only: it never calls a
 # write tool, so it is safe on production.
-bench --site your-site execute orbit.selftest.run
+bench --site your-site execute context.selftest.run
 
 # Reproduce the token figures above on your own documents.
-bench --site your-site execute orbit.selftest.measure
+bench --site your-site execute context.selftest.measure
 ```
 
 The renderer's tests import nothing from frappe, so they also run standalone:
 
 ```bash
-cd apps/orbit && PYTHONPATH=. python3 -m unittest orbit.tests.test_render -v
+cd apps/context && PYTHONPATH=. python3 -m unittest context.tests.test_render -v
 ```
 
 ## License

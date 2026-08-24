@@ -65,7 +65,7 @@
    "options": "JSON",
    "label": "Arguments",
    "read_only": 1,
-   "description": "Only recorded when 'Include arguments in the log' is enabled in Orbit Settings."
+   "description": "Only recorded when 'Include arguments in the log' is enabled in Context Settings."
   }
  ],
  "in_create": 1,
@@ -73,8 +73,8 @@
  "links": [],
  "modified": "2026-08-24 00:00:00.000000",
  "modified_by": "Administrator",
- "module": "Orbit",
- "name": "Orbit Audit Log",
+ "module": "Context",
+ "name": "Context Audit Log",
  "owner": "Administrator",
  "permissions": [
   {

@@ -12,7 +12,7 @@ alone is the raw JSON everyone else returns.
 import json
 import unittest
 
-from orbit.mcp.render import render_document, render_pagination, render_rows
+from context.mcp.render import render_document, render_pagination, render_rows
 
 
 class TestRenderDocument(unittest.TestCase):

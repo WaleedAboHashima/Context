@@ -130,7 +130,7 @@ def _permitted_count(doctype: str, filters: list[list[Any]] | None) -> int | Non
 
 def _whoami(policy: Policy, args: dict[str, Any]) -> str:
 	site = frappe.local.site
-	return f"Connected to {site} over Orbit.\n\n{policy.describe()}"
+	return f"Connected to {site} over Context.\n\n{policy.describe()}"
 
 
 def _search_doctypes(policy: Policy, args: dict[str, Any]) -> str:
@@ -465,8 +465,8 @@ DESTRUCTIVE = {"readOnlyHint": False, "destructiveHint": True, "idempotentHint":
 TOOLS: list[Tool] = [
 	Tool(
 		"frappe_whoami",
-		"Check the Orbit connection",
-		"Report which Frappe user Orbit is acting as and what it is permitted to do. "
+		"Check the Context connection",
+		"Report which Frappe user Context is acting as and what it is permitted to do. "
 		"Call this first if anything is failing - it separates a connection problem from "
 		"a permission one.",
 		{"type": "object", "properties": {}},
@@ -511,7 +511,7 @@ TOOLS: list[Tool] = [
 		"frappe_list_documents",
 		"List documents",
 		"List documents of one DocType with filters, sorting and paging. When you do not name "
-		"fields, Orbit returns the ones the site itself shows in its list view - ask for more by "
+		"fields, Context returns the ones the site itself shows in its list view - ask for more by "
 		"name rather than requesting everything. The result states how many rows exist in total, "
 		"so a first page is distinguishable from a complete answer.",
 		{
@@ -609,7 +609,7 @@ TOOLS: list[Tool] = [
 		"Update a document",
 		"Change fields on an existing document. Send only the fields being changed. A submitted "
 		"document will refuse most changes - that is Frappe protecting a posted record, not an "
-		"Orbit restriction.",
+		"Context restriction.",
 		{
 			"type": "object",
 			"properties": {

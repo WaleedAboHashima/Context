@@ -4,5 +4,5 @@
 from frappe.model.document import Document
 
 
-class OrbitSettings(Document):
+class ContextSettings(Document):
 	pass

@@ -1,10 +1,10 @@
 # Copyright (c) 2026, Waleed AboHashima and Contributors
 # License: MIT. See LICENSE
-"""What Orbit will and will not do, decided before the work is done.
+"""What Context will and will not do, decided before the work is done.
 
 This layer sits *on top of* Frappe's permissions and only ever subtracts. Nothing here
 can grant an agent access the signed-in user does not already have — Frappe decides
-that, and Orbit never asks it not to. There is no `ignore_permissions` in this app.
+that, and Context never asks it not to. There is no `ignore_permissions` in this app.
 
 What it adds is a second, coarser gate an administrator can reason about without
 reading a role permission matrix: read-only by default, three separate switches to
@@ -13,7 +13,7 @@ open it, and a short list of DocTypes that are never writable at all.
 The refusal messages matter as much as the checks. They are read by a model, which will
 relay them to the person who can act, so each one names the exact setting to change.
 "Permission denied" sends an agent looking for a workaround; "writes are disabled — tick
-Allow write in Orbit Settings" ends the conversation.
+Allow write in Context Settings" ends the conversation.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from __future__ import annotations
 import frappe
 from frappe import _
 
-# DocTypes Orbit refuses to write to, whatever the settings say.
+# DocTypes Context refuses to write to, whatever the settings say.
 #
 # These are not sensitive data — several are readable by anyone. They are the records
 # that change what the *system does*: code that runs on save, fields that exist,
@@ -30,7 +30,7 @@ from frappe import _
 # realistic agent task requires it.
 #
 # Deliberately not extended to reads. Reading `Custom Field` is how an agent
-# understands a customised site, which is behaviour Orbit exists to support.
+# understands a customised site, which is behaviour Context exists to support.
 NEVER_WRITE = frozenset(
 	{
 		"server script",
@@ -53,14 +53,14 @@ NEVER_WRITE = frozenset(
 		"workflow action",
 		"notification",
 		"api access log",
-		"orbit settings",
-		"orbit audit log",
+		"context settings",
+		"context audit log",
 	}
 )
 
 
-class OrbitDenied(frappe.ValidationError):
-	"""A refusal by Orbit's own policy, as opposed to one by Frappe's permissions."""
+class ContextDenied(frappe.ValidationError):
+	"""A refusal by Context's own policy, as opposed to one by Frappe's permissions."""
 
 
 def _split(value: str | None) -> list[str]:
@@ -78,7 +78,7 @@ class Policy:
 	"""
 
 	def __init__(self) -> None:
-		settings = frappe.get_cached_doc("Orbit Settings")
+		settings = frappe.get_cached_doc("Context Settings")
 
 		self.enabled = bool(settings.enabled)
 		self.allow_write = bool(settings.allow_write)
@@ -100,7 +100,7 @@ class Policy:
 	# -- gates ---------------------------------------------------------------
 
 	def assert_available(self) -> None:
-		"""Whether this user may use Orbit at all.
+		"""Whether this user may use Context at all.
 
 		The role gate is the control an administrator reaches for first, and it is
 		checked before anything else: an installed app that is switched off should
@@ -108,17 +108,17 @@ class Policy:
 		"""
 		if not self.enabled:
 			frappe.throw(
-				_("Orbit is switched off for this site. An administrator can enable it in Orbit Settings."),
-				OrbitDenied,
+				_("Context is switched off for this site. An administrator can enable it in Context Settings."),
+				ContextDenied,
 			)
 
 		if frappe.session.user == "Guest":
-			frappe.throw(_("Orbit requires an authenticated user."), frappe.AuthenticationError)
+			frappe.throw(_("Context requires an authenticated user."), frappe.AuthenticationError)
 
 		if self.required_role and self.required_role not in frappe.get_roles():
 			frappe.throw(
-				_("Orbit is restricted to the {0} role on this site.").format(self.required_role),
-				OrbitDenied,
+				_("Context is restricted to the {0} role on this site.").format(self.required_role),
+				ContextDenied,
 			)
 
 	def assert_in_scope(self, doctype: str) -> None:
@@ -129,10 +129,10 @@ class Policy:
 			return
 		frappe.throw(
 			_(
-				"{0} is outside the scope configured for Orbit on this site. "
-				"Allowed: {1}. An administrator can widen it in Orbit Settings."
+				"{0} is outside the scope configured for Context on this site. "
+				"Allowed: {1}. An administrator can widen it in Context Settings."
 			).format(doctype, ", ".join(self._allowed_as_written)),
-			OrbitDenied,
+			ContextDenied,
 		)
 
 	def assert_writable(self, doctype: str) -> None:
@@ -140,18 +140,18 @@ class Policy:
 
 		if not self.allow_write:
 			frappe.throw(
-				_("Orbit is read-only on this site. An administrator can tick 'Allow write' in Orbit Settings."),
-				OrbitDenied,
+				_("Context is read-only on this site. An administrator can tick 'Allow write' in Context Settings."),
+				ContextDenied,
 			)
 
 		if doctype.lower() in self._denied:
 			frappe.throw(
 				_(
-					"Orbit never writes to {0}. That DocType changes how the site itself "
+					"Context never writes to {0}. That DocType changes how the site itself "
 					"behaves - code, schema, permissions or users - rather than its business "
 					"data, so it is refused regardless of settings. Make this change in the desk."
 				).format(doctype),
-				OrbitDenied,
+				ContextDenied,
 			)
 
 	def assert_submittable(self, doctype: str) -> None:
@@ -160,11 +160,11 @@ class Policy:
 		if not self.allow_submit:
 			frappe.throw(
 				_(
-					"Submitting and cancelling are disabled for Orbit. This is a separate "
+					"Submitting and cancelling are disabled for Context. This is a separate "
 					"setting from write because submitting posts ledger entries and moves "
 					"stock, and cancelling leaves a permanent trail."
 				),
-				OrbitDenied,
+				ContextDenied,
 			)
 
 	def assert_deletable(self, doctype: str) -> None:
@@ -172,8 +172,8 @@ class Policy:
 
 		if not self.allow_delete:
 			frappe.throw(
-				_("Deleting is disabled for Orbit. Deletion has no undo, which is why it is its own setting."),
-				OrbitDenied,
+				_("Deleting is disabled for Context. Deletion has no undo, which is why it is its own setting."),
+				ContextDenied,
 			)
 
 	# -- limits --------------------------------------------------------------

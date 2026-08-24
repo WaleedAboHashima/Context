@@ -6,14 +6,14 @@ The discovery story turned out to be almost entirely Frappe's already. A v16 sit
 publishes `/.well-known/oauth-authorization-server` and
 `/.well-known/oauth-protected-resource`, supports PKCE with S256, and accepts dynamic
 client registration — all of it on by default, all of it in
-`frappe.integrations.oauth2`. Orbit does not reimplement any of that and must not: a
+`frappe.integrations.oauth2`. Context does not reimplement any of that and must not: a
 second OAuth surface on the same site would be a second thing to get wrong.
 
 What was actually missing is one sentence in a header. RFC 9728 says a protected
 resource announces where its metadata lives by answering an unauthenticated request
 with `401` and a `WWW-Authenticate` header naming it. Without that header a client has
 no way to know the site can be authorised against, so its UI can only offer to let the
-user paste a client id by hand. `orbit.api.mcp` sends it; that is the whole fix.
+user paste a client id by hand. `context.api.mcp` sends it; that is the whole fix.
 
 This module is the other half: telling the administrator what to paste where, and
 checking the two flags that the flow depends on.
@@ -26,13 +26,13 @@ from typing import Any
 import frappe
 from frappe import _
 
-MCP_PATH = "/api/method/orbit.api.mcp"
+MCP_PATH = "/api/method/context.api.mcp"
 
 
 def framework_publishes_metadata() -> bool:
 	"""Whether this Frappe is new enough to publish OAuth metadata.
 
-	`handle_wellknown` and `register_client` arrived in v16. On v14 and v15 Orbit itself
+	`handle_wellknown` and `register_client` arrived in v16. On v14 and v15 Context itself
 	works — the endpoint, the tools, the permissions, the audit log are all framework
 	features that have been stable for years — but there is nothing serving
 	`/.well-known/oauth-authorization-server`, so a connector cannot discover how to sign
@@ -96,10 +96,10 @@ def connection_info() -> dict[str, Any]:
 	"""
 	frappe.only_for("System Manager")
 
-	from orbit.mcp.policy import Policy
-	from orbit.mcp.registry import available
+	from context.mcp.policy import Policy
+	from context.mcp.registry import available
 
-	settings = frappe.get_cached_doc("Orbit Settings")
+	settings = frappe.get_cached_doc("Context Settings")
 
 	supported = framework_publishes_metadata()
 	if supported:
@@ -148,7 +148,7 @@ def enable_discovery() -> dict[str, Any]:
 	"""Turn on the OAuth metadata a connector needs to find its way in.
 
 	Separated behind its own button and never done on install, because these are
-	*site-wide* settings that outlive Orbit: they affect every OAuth client on the site,
+	*site-wide* settings that outlive Context: they affect every OAuth client on the site,
 	not just this app. Enabling them silently at install time would be an app changing
 	something it does not own.
 
@@ -162,7 +162,7 @@ def enable_discovery() -> dict[str, Any]:
 		frappe.throw(
 			_(
 				"This version of Frappe does not publish OAuth metadata - that arrived in v16. "
-				"Orbit still works here with an API key; browser-based sign-in does not."
+				"Context still works here with an API key; browser-based sign-in does not."
 			)
 		)
 

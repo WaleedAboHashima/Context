@@ -2,7 +2,7 @@
 # License: MIT. See LICENSE
 """A self-check, runnable from the bench.
 
-    bench --site your-site execute orbit.selftest.run
+    bench --site your-site execute context.selftest.run
 
 Speaks the protocol to itself: completes the handshake, lists the tools, and runs the
 read-only ones against real data on this site, printing exactly what an agent would
@@ -22,7 +22,7 @@ from typing import Any
 
 import frappe
 
-from orbit.mcp import protocol
+from context.mcp import protocol
 
 
 def _call(method: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
@@ -61,7 +61,7 @@ def _show(label: str, reply: dict[str, Any] | None) -> bool:
 
 def run(doctype: str = "Sales Order") -> None:
 	"""Exercise the read-only surface against this site."""
-	print(f"\nOrbit self-check on {frappe.local.site} as {frappe.session.user}")
+	print(f"\nContext self-check on {frappe.local.site} as {frappe.session.user}")
 
 	passed = failed = 0
 
@@ -80,7 +80,7 @@ def run(doctype: str = "Sales Order") -> None:
 	# A disabled site is a legitimate state, not a failure — but nothing below it can
 	# run, so say so plainly rather than reporting eleven refusals.
 	if tools and "error" not in tools and tools.get("result", {}).get("tools") is None:
-		print("\nOrbit is not available to this user. Nothing further to check.")
+		print("\nContext is not available to this user. Nothing further to check.")
 		return
 
 	track(_show("frappe_whoami", _call("tools/call", {"name": "frappe_whoami", "arguments": {}})))
@@ -155,7 +155,7 @@ def run(doctype: str = "Sales Order") -> None:
 def measure(doctype: str = "Sales Order", name: str | None = None) -> None:
 	"""How much smaller a real document from this site gets.
 
-	    bench --site your-site execute orbit.selftest.measure
+	    bench --site your-site execute context.selftest.measure
 
 	The claim in the README, measured against your own data rather than asserted. Token
 	figures are a divide — roughly 3.6 characters per token for dense JSON, 4 for text —
@@ -163,8 +163,8 @@ def measure(doctype: str = "Sales Order", name: str | None = None) -> None:
 	"""
 	import json
 
-	from orbit.mcp import meta as meta_module
-	from orbit.mcp.render import render_document
+	from context.mcp import meta as meta_module
+	from context.mcp.render import render_document
 
 	if not name:
 		rows = frappe.get_list(doctype, fields=["name"], limit_page_length=1, order_by="modified desc")
@@ -183,9 +183,9 @@ def measure(doctype: str = "Sales Order", name: str | None = None) -> None:
 	)
 
 	raw_tokens = len(raw) / 3.6
-	orbit_tokens = len(rendered) / 4
+	context_tokens = len(rendered) / 4
 
 	print(f"\n{doctype} {name} on {frappe.local.site}\n")
 	print(f"  as_dict JSON : {len(raw):>7,} chars  (~{raw_tokens:>6,.0f} tokens)")
-	print(f"  through Orbit: {len(rendered):>7,} chars  (~{orbit_tokens:>6,.0f} tokens)")
-	print(f"  saving       : {100 - orbit_tokens / raw_tokens * 100:>6.0f}%\n")
+	print(f"  through Context: {len(rendered):>7,} chars  (~{context_tokens:>6,.0f} tokens)")
+	print(f"  saving       : {100 - context_tokens / raw_tokens * 100:>6.0f}%\n")

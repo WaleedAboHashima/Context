@@ -1,16 +1,16 @@
 [project]
-name = "orbit"
+name = "context"
 authors = [
     { name = "Waleed AboHashima", email = "waleedsabry.abohashima@gmail.com"}
 ]
-description = "Orbit — connect any AI agent to Frappe and ERPNext over MCP"
+description = "Context — connect any AI agent to Frappe and ERPNext over MCP"
 requires-python = ">=3.10"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 dynamic = ["version"]
 dependencies = [
-    # None. Orbit speaks MCP over Frappe's own request cycle and uses nothing
+    # None. Context speaks MCP over Frappe's own request cycle and uses nothing
     # that is not already in the bench — deliberately, because a dependency here
     # is a dependency every site that installs this app inherits.
 ]
@@ -20,7 +20,7 @@ requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
 
 # Frappe Cloud reads this to decide whether the app is installable against a
-# given bench. Orbit only touches the REST-facing parts of the framework —
+# given bench. Context only touches the REST-facing parts of the framework —
 # whitelisting, permissions, and DocType metadata — which have been stable
 # across v14, v15 and v16, so the range is wide on purpose.
 [tool.bench.frappe-dependencies]

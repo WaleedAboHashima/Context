@@ -39,14 +39,14 @@
    "fieldname": "endpoint_html",
    "fieldtype": "HTML",
    "label": "Endpoint",
-   "options": "<p>Point your AI client at <code>/api/method/orbit.api.mcp</code> on this site. Authentication is this site's own: an API key pair, an OAuth token, or a session. Every call runs as the user behind that credential, under their own permissions.</p>"
+   "options": "<p>Point your AI client at <code>/api/method/context.api.mcp</code> on this site. Authentication is this site's own: an API key pair, an OAuth token, or a session. Every call runs as the user behind that credential, under their own permissions.</p>"
   },
   {
    "fieldname": "required_role",
    "fieldtype": "Link",
    "options": "Role",
    "label": "Restrict to role",
-   "description": "If set, only users with this role may use Orbit at all. The narrowest control here, and the first one to reach for."
+   "description": "If set, only users with this role may use Context at all. The narrowest control here, and the first one to reach for."
   },
   {
    "fieldname": "capability_section",
@@ -90,7 +90,7 @@
    "fieldname": "allowed_doctypes",
    "fieldtype": "Small Text",
    "label": "Allowed DocTypes",
-   "description": "One per line, or comma separated. If set, these are the only DocTypes Orbit will touch at all - reads included. The strongest control available here."
+   "description": "One per line, or comma separated. If set, these are the only DocTypes Context will touch at all - reads included. The strongest control available here."
   },
   {
    "fieldname": "denied_doctypes",
@@ -116,7 +116,7 @@
    "fieldtype": "Check",
    "label": "Log every tool call",
    "default": "1",
-   "description": "Writes an Orbit Audit Log entry per call, refusals included. Refusals are the interesting half."
+   "description": "Writes an Context Audit Log entry per call, refusals included. Refusals are the interesting half."
   },
   {
    "fieldname": "log_arguments",
@@ -132,8 +132,8 @@
  "links": [],
  "modified": "2026-08-24 00:00:00.000000",
  "modified_by": "Administrator",
- "module": "Orbit",
- "name": "Orbit Settings",
+ "module": "Context",
+ "name": "Context Settings",
  "owner": "Administrator",
  "permissions": [
   {

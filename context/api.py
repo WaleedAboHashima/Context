@@ -2,7 +2,7 @@
 # License: MIT. See LICENSE
 """The HTTP surface: one endpoint.
 
-	POST https://your-site/api/method/orbit.api.mcp
+	POST https://your-site/api/method/context.api.mcp
 
 That is the whole integration. An MCP client is given that URL and a credential, and
 everything else — the handshake, the tool list, the calls — happens over it.
@@ -15,7 +15,7 @@ a batched request needs, which a dict-based response could not express at all.
 
 Authentication is Frappe's, untouched. A request arrives with an API key pair, an OAuth
 bearer token, or a session cookie, and `frappe.session.user` is whoever that resolves to.
-Orbit adds no authentication of its own and has no service account: there is no way to
+Context adds no authentication of its own and has no service account: there is no way to
 reach this endpoint as anyone other than a real user of the site, which is what makes the
 permission story hold.
 """
@@ -28,7 +28,7 @@ from typing import Any
 import frappe
 from werkzeug.wrappers import Response
 
-from orbit.mcp import protocol
+from context.mcp import protocol
 
 CONTENT_TYPE = "application/json"
 
@@ -55,10 +55,10 @@ def _unauthorized() -> Response:
 	that and signing in.
 
 	The metadata itself is Frappe's — `frappe.integrations.oauth2` publishes it, gated by
-	two flags in OAuth Settings that are on by default in v16. Orbit does not reimplement
+	two flags in OAuth Settings that are on by default in v16. Context does not reimplement
 	any of it.
 	"""
-	from orbit.connect import site_url
+	from context.connect import site_url
 
 	return Response(
 		json.dumps(
@@ -75,7 +75,7 @@ def _unauthorized() -> Response:
 		content_type=CONTENT_TYPE,
 		headers={
 			"WWW-Authenticate": (
-				'Bearer realm="Orbit", '
+				'Bearer realm="Context", '
 				f'resource_metadata="{site_url()}/.well-known/oauth-protected-resource"'
 			)
 		},
@@ -86,7 +86,7 @@ def _unauthorized() -> Response:
 def mcp() -> Response:
 	"""Streamable HTTP, without the stream.
 
-	Orbit's tools each return a complete result, so there is nothing to stream and the
+	Context's tools each return a complete result, so there is nothing to stream and the
 	optional SSE channel would be a moving part that never carries anything. A client
 	that probes `GET` for it is answered with 405, which the transport specifies as the
 	way to say "this server does not offer a stream" — an error page there presents to
@@ -108,7 +108,7 @@ def mcp() -> Response:
 					"jsonrpc": "2.0",
 					"error": {
 						"code": -32601,
-						"message": "Orbit does not offer a server-initiated stream. POST JSON-RPC to this URL.",
+						"message": "Context does not offer a server-initiated stream. POST JSON-RPC to this URL.",
 					},
 				}
 			),
@@ -117,7 +117,7 @@ def mcp() -> Response:
 		)
 
 	if method == "DELETE":
-		# Session teardown. Orbit keeps no per-session state — every call is resolved
+		# Session teardown. Context keeps no per-session state — every call is resolved
 		# from the request's own credential — so there is nothing to tear down.
 		return Response(status=204)
 
@@ -156,8 +156,8 @@ def health() -> dict[str, Any]:
 	Exists because "is the connector broken or is the URL wrong" is the first question
 	anyone asks, and answering it should not require speaking JSON-RPC by hand.
 	"""
-	from orbit.mcp.policy import Policy
-	from orbit.mcp.registry import available
+	from context.mcp.policy import Policy
+	from context.mcp.registry import available
 
 	try:
 		policy = Policy()

@@ -1,0 +1,4 @@
+[pre_model_sync]
+context.patches.rename_orbit_to_context
+
+[post_model_sync]

@@ -4,7 +4,7 @@
 
 This is a deliberately small implementation of Streamable HTTP: a single POST endpoint
 that takes one JSON-RPC message and answers it. What it leaves out is the optional SSE
-stream — Orbit's tools all return a complete result, so there is nothing to stream, and
+stream — Context's tools all return a complete result, so there is nothing to stream, and
 a GET channel that only ever stays silent is a moving part with no purpose.
 
 Three methods carry everything:
@@ -16,7 +16,7 @@ Three methods carry everything:
 Notifications (a message with no `id`) get no response, per the spec. Everything else
 gets exactly one, and errors that belong to the *tool* are returned as a successful
 result with `isError` set, not as a JSON-RPC error — the distinction matters, because a
-protocol-level error tells the client Orbit is broken, while a tool error tells the model
+protocol-level error tells the client Context is broken, while a tool error tells the model
 its request was wrong and it should try differently.
 """
 
@@ -27,10 +27,10 @@ from typing import Any
 
 import frappe
 
-from orbit import __version__
+from context import __version__
 
 from . import audit
-from .policy import OrbitDenied, Policy
+from .policy import ContextDenied, Policy
 from .registry import BY_NAME, available
 
 # The revision this implementation was written against, and the one it answers with when
@@ -38,14 +38,14 @@ from .registry import BY_NAME, available
 PROTOCOL_VERSION = "2025-06-18"
 
 # Revisions this server is willing to speak. Every one of them is satisfied by the same
-# three methods and the same result shapes - nothing Orbit does differs between them -
+# three methods and the same result shapes - nothing Context does differs between them -
 # so agreeing to the client's revision costs nothing and refusing it costs the
 # connection. The spec is explicit that a client which does not support the version it
 # gets back SHOULD disconnect, so answering "2025-06-18" to a client that opened with
 # "2024-11-05" is a hang-up, not a negotiation.
 SUPPORTED_PROTOCOL_VERSIONS = frozenset({"2024-11-05", "2025-03-26", "2025-06-18"})
 
-SERVER_INFO = {"name": "orbit", "version": __version__}
+SERVER_INFO = {"name": "context", "version": __version__}
 
 # JSON-RPC reserved codes.
 PARSE_ERROR = -32700
@@ -70,7 +70,7 @@ def handle(message: dict[str, Any]) -> dict[str, Any] | None:
 	Nothing raises out of here. An exception escaping this function would reach the client
 	as an HTTP 500 and an HTML error page, which an MCP client reports to the user as
 	"the server is unreachable" — indistinguishable from a wrong URL or a dead site. A
-	switched-off Orbit and a missing permission are ordinary states and have to arrive as
+	switched-off Context and a missing permission are ordinary states and have to arrive as
 	readable JSON-RPC, not as a crash.
 	"""
 	try:
@@ -109,7 +109,7 @@ def _dispatch(message: dict[str, Any]) -> dict[str, Any] | None:
 				"capabilities": {"tools": {"listChanged": False}},
 				"serverInfo": SERVER_INFO,
 				"instructions": (
-					"Orbit exposes this Frappe/ERPNext site. Start with frappe_whoami to see what "
+					"Context exposes this Frappe/ERPNext site. Start with frappe_whoami to see what "
 					"you may do, frappe_search_doctypes to find a record type, and "
 					"frappe_describe_doctype before writing a filter or creating a document - "
 					"field names on a customised site are not guessable."
@@ -128,7 +128,7 @@ def _dispatch(message: dict[str, Any]) -> dict[str, Any] | None:
 	if method == "tools/call":
 		return _call(request_id, params)
 
-	return _error(request_id, METHOD_NOT_FOUND, f"Orbit does not implement {method!r}.")
+	return _error(request_id, METHOD_NOT_FOUND, f"Context does not implement {method!r}.")
 
 
 def _call(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
@@ -147,7 +147,7 @@ def _call(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 	if tool not in available(policy):
 		return _text_result(
 			request_id,
-			f"{name} is not enabled on this site. An administrator controls this in Orbit Settings.",
+			f"{name} is not enabled on this site. An administrator controls this in Context Settings.",
 			is_error=True,
 		)
 
@@ -217,10 +217,10 @@ def _explain(exception: Exception) -> str:
 
 	detail = " ".join(details).strip()
 
-	# Checked before the Frappe families below, because OrbitDenied subclasses
+	# Checked before the Frappe families below, because ContextDenied subclasses
 	# ValidationError and would otherwise be reported as a failed validation rule. A
 	# policy refusal needs no prefix: its message already names the setting to change.
-	if isinstance(exception, OrbitDenied):
+	if isinstance(exception, ContextDenied):
 		return detail or str(exception)
 
 	if isinstance(exception, frappe.PermissionError):
@@ -236,9 +236,9 @@ def _explain(exception: Exception) -> str:
 	elif isinstance(exception, frappe.ValidationError):
 		prefix = "Frappe refused to save this: a validation rule failed."
 	else:
-		frappe.log_error(title="Orbit: unhandled error in a tool call")
+		frappe.log_error(title="Context: unhandled error in a tool call")
 		return (
-			"Orbit hit an unexpected error. It has been written to this site's Error Log; "
+			"Context hit an unexpected error. It has been written to this site's Error Log; "
 			"there is nothing to retry differently."
 		)
 

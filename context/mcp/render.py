@@ -1,6 +1,6 @@
 # Copyright (c) 2026, Waleed AboHashima and Contributors
 # License: MIT. See LICENSE
-"""Rendering, and the reason Orbit exists.
+"""Rendering, and the reason Context exists.
 
 A Sales Order in ERPNext carries upwards of two hundred fields. Almost all of them
 are null, zero, or framework bookkeeping, and a plain `frappe.get_doc(...).as_dict()`

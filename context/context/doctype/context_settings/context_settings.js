@@ -17,14 +17,14 @@
  * what to copy.
  */
 
-frappe.ui.form.on("Orbit Settings", {
+frappe.ui.form.on("Context Settings", {
 	refresh(frm) {
 		const button = frm.add_custom_button(__("Connect your AI"), () => open_connect_dialog(frm));
 		button.removeClass("btn-default").addClass("btn-primary");
 
 		if (!frm.doc.enabled) {
 			frm.dashboard.set_headline(
-				__("Orbit is switched off. Nothing can reach this site until you tick Enabled.")
+				__("Context is switched off. Nothing can reach this site until you tick Enabled.")
 			);
 		}
 	},
@@ -32,7 +32,7 @@ frappe.ui.form.on("Orbit Settings", {
 
 function open_connect_dialog(frm) {
 	frappe.call({
-		method: "orbit.connect.connection_info",
+		method: "context.connect.connection_info",
 		freeze: true,
 		freeze_message: __("Checking this site..."),
 		callback({ message }) {
@@ -84,7 +84,7 @@ function status_block(info) {
 		[__("This site"), esc(info.site)],
 		[__("You are"), esc(info.user)],
 		[
-			__("Orbit is"),
+			__("Context is"),
 			info.enabled
 				? `<span class="text-success">${__("on")}</span>`
 				: `<span class="text-danger">${__("off")}</span>`,
@@ -127,9 +127,9 @@ function endpoint_block(info) {
 				"Every AI client needs this one URL. Nothing else is secret — it is your site's own address."
 			)}</p>
 			<div class="input-group">
-				<input type="text" class="form-control" readonly value="${esc(info.endpoint)}" data-orbit="endpoint-input">
+				<input type="text" class="form-control" readonly value="${esc(info.endpoint)}" data-context="endpoint-input">
 				<span class="input-group-btn">
-					<button class="btn btn-default" data-orbit="copy-endpoint">${__("Copy")}</button>
+					<button class="btn btn-default" data-context="copy-endpoint">${__("Copy")}</button>
 				</span>
 			</div>
 		</div>
@@ -172,9 +172,9 @@ function discovery_block(info) {
 				"Without this, clients like Claude and ChatGPT cannot offer a Connect button and will ask for a client id instead. Turning it on lets them find this site's login page."
 			)}</p>
 			<p class="text-muted small">${__("Missing")}: ${esc(missing.join(", "))} — ${__(
-				"these are site-wide OAuth settings, not Orbit's, which is why Orbit will not change them without being asked."
+				"these are site-wide OAuth settings, not Context's, which is why Context will not change them without being asked."
 			)}</p>
-			<button class="btn btn-sm btn-primary" data-orbit="enable-discovery">${__("Turn on sign-in")}</button>
+			<button class="btn btn-sm btn-primary" data-context="enable-discovery">${__("Turn on sign-in")}</button>
 		</div>
 	`;
 }
@@ -195,11 +195,11 @@ function clients_block(info) {
 		},
 		{
 			name: "Claude Code",
-			code: `claude mcp add --transport http orbit ${url}`,
+			code: `claude mcp add --transport http context ${url}`,
 		},
 		{
 			name: "Cursor / VS Code",
-			code: JSON.stringify({ mcpServers: { orbit: { url } } }, null, 2),
+			code: JSON.stringify({ mcpServers: { context: { url } } }, null, 2),
 		},
 	];
 
@@ -216,9 +216,9 @@ function clients_block(info) {
 						client.code
 							? `<div style="margin-top:6px;position:relative">
 									<pre style="margin:0;padding:10px;white-space:pre-wrap;word-break:break-all">${esc(client.code)}</pre>
-									<button class="btn btn-xs btn-default" data-orbit="copy-code" data-index="${index}"
+									<button class="btn btn-xs btn-default" data-context="copy-code" data-index="${index}"
 										style="position:absolute;top:6px;right:6px">${__("Copy")}</button>
-									<textarea data-orbit="code-${index}" style="display:none">${esc(client.code)}</textarea>
+									<textarea data-context="code-${index}" style="display:none">${esc(client.code)}</textarea>
 								</div>`
 							: ""
 					}
@@ -228,7 +228,7 @@ function clients_block(info) {
 				.join("")}
 			<p class="text-muted small" style="margin-top:16px">
 				${__(
-					"Whoever connects signs in as themselves and sees only what their Frappe permissions already allow. Every call is recorded in Orbit Audit Log, refusals included."
+					"Whoever connects signs in as themselves and sees only what their Frappe permissions already allow. Every call is recorded in Context Audit Log, refusals included."
 				)}
 			</p>
 		</div>
@@ -238,19 +238,19 @@ function clients_block(info) {
 function wire_actions(dialog, frm, info) {
 	const $body = dialog.fields_dict.body.$wrapper;
 
-	$body.find('[data-orbit="copy-endpoint"]').on("click", () => {
+	$body.find('[data-context="copy-endpoint"]').on("click", () => {
 		frappe.utils.copy_to_clipboard(info.endpoint);
 	});
 
-	$body.find('[data-orbit="copy-code"]').on("click", function () {
+	$body.find('[data-context="copy-code"]').on("click", function () {
 		const index = $(this).attr("data-index");
-		const text = $body.find(`[data-orbit="code-${index}"]`).val();
+		const text = $body.find(`[data-context="code-${index}"]`).val();
 		frappe.utils.copy_to_clipboard(text);
 	});
 
-	$body.find('[data-orbit="enable-discovery"]').on("click", () => {
+	$body.find('[data-context="enable-discovery"]').on("click", () => {
 		frappe.call({
-			method: "orbit.connect.enable_discovery",
+			method: "context.connect.enable_discovery",
 			freeze: true,
 			callback() {
 				frappe.show_alert({ message: __("Sign-in is now advertised."), indicator: "green" });

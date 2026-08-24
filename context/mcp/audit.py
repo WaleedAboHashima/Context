@@ -49,7 +49,7 @@ def record(
 
 		frappe.get_doc(
 			{
-				"doctype": "Orbit Audit Log",
+				"doctype": "Context Audit Log",
 				"tool": tool,
 				# Pulled out of the arguments so the log can be filtered by what was
 				# touched, which is the question an audit is usually asked.
@@ -70,6 +70,6 @@ def record(
 		# turn a tool call that worked into a protocol error, which is exactly the
 		# failure mode this module promises not to have.
 		try:
-			frappe.log_error(title="Orbit: could not write audit log")
+			frappe.log_error(title="Context: could not write audit log")
 		except Exception:
 			pass
