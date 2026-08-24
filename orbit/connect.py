@@ -29,6 +29,26 @@ from frappe import _
 MCP_PATH = "/api/method/orbit.api.mcp"
 
 
+def framework_publishes_metadata() -> bool:
+	"""Whether this Frappe is new enough to publish OAuth metadata.
+
+	`handle_wellknown` and `register_client` arrived in v16. On v14 and v15 Orbit itself
+	works — the endpoint, the tools, the permissions, the audit log are all framework
+	features that have been stable for years — but there is nothing serving
+	`/.well-known/oauth-authorization-server`, so a connector cannot discover how to sign
+	in and only an API key will do.
+
+	Checked by capability rather than by version number, because a backport or a fork
+	makes a version comparison lie in both directions.
+	"""
+	try:
+		from frappe.integrations import oauth2
+
+		return hasattr(oauth2, "handle_wellknown")
+	except Exception:
+		return False
+
+
 def site_url() -> str:
 	"""The site's own origin, as the request saw it.
 
@@ -65,12 +85,18 @@ def connection_info() -> dict[str, Any]:
 
 	settings = frappe.get_cached_doc("Orbit Settings")
 
-	oauth = frappe.get_cached_doc("OAuth Settings")
-	discovery = {
-		"auth_server_metadata": bool(oauth.show_auth_server_metadata),
-		"protected_resource_metadata": bool(oauth.show_protected_resource_metadata),
-		"dynamic_client_registration": bool(oauth.enable_dynamic_client_registration),
-	}
+	supported = framework_publishes_metadata()
+	if supported:
+		oauth = frappe.get_cached_doc("OAuth Settings")
+		discovery = {
+			"auth_server_metadata": bool(oauth.show_auth_server_metadata),
+			"protected_resource_metadata": bool(oauth.show_protected_resource_metadata),
+			"dynamic_client_registration": bool(oauth.enable_dynamic_client_registration),
+		}
+	else:
+		# Nothing to report and nothing that can be switched on: the endpoints do not
+		# exist in this framework version.
+		discovery = {}
 
 	tools: list[str] = []
 	blocked = None
@@ -95,7 +121,8 @@ def connection_info() -> dict[str, Any]:
 		"required_role": settings.required_role or None,
 		"tools": tools,
 		"discovery": discovery,
-		"discovery_ready": all(discovery.values()),
+		"framework_publishes_metadata": supported,
+		"discovery_ready": supported and all(discovery.values()),
 		"user": frappe.session.user,
 	}
 
@@ -114,6 +141,14 @@ def enable_discovery() -> dict[str, Any]:
 	rude.
 	"""
 	frappe.only_for("System Manager")
+
+	if not framework_publishes_metadata():
+		frappe.throw(
+			_(
+				"This version of Frappe does not publish OAuth metadata - that arrived in v16. "
+				"Orbit still works here with an API key; browser-based sign-in does not."
+			)
+		)
 
 	settings = frappe.get_doc("OAuth Settings")
 	changed = []

@@ -11,6 +11,11 @@ bench get-app https://github.com/WaleedAboHashima/orbit
 bench --site your-site install-app orbit
 ```
 
+**Frappe v14 and up.** Browser sign-in needs **v16**, which is where Frappe began
+publishing OAuth metadata — on v14 and v15 everything else works, but connecting means
+sending an API key header, which Claude Code and Cursor accept and Claude Desktop and
+ChatGPT do not. The Connect dialog tells you which situation you are in.
+
 Then, in the desk: **Orbit Settings → Enabled → Connect your AI**.
 
 That button shows you the URL, tells you what agents are currently allowed to do on this

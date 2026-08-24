@@ -137,6 +137,20 @@ function endpoint_block(info) {
 }
 
 function discovery_block(info) {
+	if (!info.framework_publishes_metadata) {
+		// Not a misconfiguration and not fixable here — the endpoints do not exist on
+		// this Frappe version. Saying "not advertised yet" would send the administrator
+		// hunting for a switch that isn't there.
+		return `
+			<div class="alert alert-info" style="margin-bottom:20px">
+				<p><b>${__("Browser sign-in needs Frappe v16.")}</b></p>
+				<p>${__(
+					"This site's Frappe version does not publish the OAuth metadata a connector needs, so Claude Desktop and ChatGPT cannot sign in here. Everything else works: connect with an API key header from Claude Code or Cursor, using the URL above."
+				)}</p>
+			</div>
+		`;
+	}
+
 	if (info.discovery_ready) {
 		return `
 			<div class="alert alert-success" style="margin-bottom:20px">
