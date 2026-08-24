@@ -82,8 +82,17 @@ class Policy:
 
 		self.enabled = bool(settings.enabled)
 		self.allow_write = bool(settings.allow_write)
-		self.allow_submit = bool(settings.allow_submit)
-		self.allow_delete = bool(settings.allow_delete)
+
+		# Submitting, cancelling and deleting are escalations of writing, not
+		# alternatives to it: `assert_submittable` and `assert_deletable` both call
+		# `assert_writable` first. Read literally, a site with submit ticked and write
+		# not would advertise three tools that can never succeed - and "a tool that is
+		# switched off is absent, not failing" is the promise the tool list exists to
+		# keep. That state is reachable: the form hides these two behind write rather
+		# than clearing them, so a site that once allowed writes and then stopped keeps
+		# a 1 in the database under a hidden checkbox.
+		self.allow_submit = self.allow_write and bool(settings.allow_submit)
+		self.allow_delete = self.allow_write and bool(settings.allow_delete)
 		self.required_role = (settings.required_role or "").strip()
 		self.max_rows = max(1, min(int(settings.max_rows or 20), 200))
 		self.log_tool_calls = bool(settings.log_tool_calls)

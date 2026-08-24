@@ -199,8 +199,8 @@ Arguments are logged only if you opt in, because a tool call can carry customer 
 | Enabled | Off on install. While off, the endpoint refuses everything. |
 | Restrict to role | Only users with this role may use Context at all. |
 | Allow create and update | Drafts only. |
-| Allow submit and cancel | Posts to the ledger; leaves a permanent trail. |
-| Allow delete | No undo. |
+| Allow submit and cancel | Posts to the ledger; leaves a permanent trail. Requires **Allow create and update** — submitting is an escalation of writing, not an alternative to it. |
+| Allow delete | No undo. Requires **Allow create and update** for the same reason. |
 | Allowed DocTypes | If set, the only DocTypes Context touches — reads included. |
 | Never write these DocTypes | Added to the built-in list. |
 | Max rows per call | Default 20. A ceiling on how much context one call can consume. |

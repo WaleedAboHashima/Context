@@ -5,4 +5,14 @@ from frappe.model.document import Document
 
 
 class ContextSettings(Document):
-	pass
+	def validate(self) -> None:
+		"""Keep what is stored the same as what the form shows.
+
+		`allow_submit` and `allow_delete` are hidden behind `depends_on: allow_write`,
+		which stops them being *shown* but not being *stored*. Ticking submit and then
+		unticking write leaves a 1 in the database under a checkbox nobody can see,
+		and the settings page then disagrees with itself about what agents may do.
+		"""
+		if not self.allow_write:
+			self.allow_submit = 0
+			self.allow_delete = 0
