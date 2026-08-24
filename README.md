@@ -11,7 +11,10 @@ bench get-app https://github.com/WaleedAboHashima/orbit
 bench --site your-site install-app orbit
 ```
 
-Then: **Desk → Orbit Settings → Enabled**, and give your AI client this URL:
+Then, in the desk: **Orbit Settings → Enabled → Connect your AI**.
+
+That button shows you the URL, tells you what agents are currently allowed to do on this
+site, and gives you the exact thing to paste into Claude, ChatGPT, Cursor or Claude Code.
 
 ```
 https://your-site.com/api/method/orbit.api.mcp
@@ -19,6 +22,25 @@ https://your-site.com/api/method/orbit.api.mcp
 
 That's the whole integration. No API keys to mint and hand around, no local software to
 install, nothing to run on your laptop.
+
+### Signing in
+
+Whoever connects sees this site's own login page and authorises as themselves, so every
+agent acts under its own user's Frappe permissions — the warehouse clerk's agent sees
+what the warehouse clerk sees.
+
+That works because Frappe already is an OAuth 2.1 provider: v16 publishes
+`/.well-known/oauth-authorization-server` and `/.well-known/oauth-protected-resource`,
+supports PKCE, and accepts dynamic client registration, all on by default. Orbit does not
+reimplement any of it. Its entire contribution to the flow is one header — an
+unauthenticated request gets `401` with
+`WWW-Authenticate: Bearer resource_metadata="..."`, which is what tells a client the site
+can be signed in to. Without that header a connector UI can only offer to let you paste a
+client id by hand; with it, you get a Connect button.
+
+If those OAuth flags have been switched off on your site, the Connect dialog notices and
+offers to turn them back on. It will not do so silently — they are site-wide settings that
+affect every OAuth client, not just this app.
 
 ---
 

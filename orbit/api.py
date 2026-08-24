@@ -41,7 +41,48 @@ def _json_response(payload: Any, status: int = 200) -> Response:
 	)
 
 
-@frappe.whitelist(methods=["POST", "GET", "DELETE"])
+def _unauthorized() -> Response:
+	"""401, with the one header that makes click-to-connect possible.
+
+	RFC 9728: a protected resource announces where its metadata lives by answering an
+	unauthenticated request with `WWW-Authenticate: Bearer resource_metadata="..."`. A
+	client reads that, fetches the metadata, finds the authorization server, and can then
+	offer the user a Connect button.
+
+	Without this header the site is not *undiscoverable* so much as silent: the client has
+	no way to learn that OAuth is available here, so its UI falls back to asking the user
+	to paste a client id and secret by hand. One header is the whole difference between
+	that and signing in.
+
+	The metadata itself is Frappe's — `frappe.integrations.oauth2` publishes it, gated by
+	two flags in OAuth Settings that are on by default in v16. Orbit does not reimplement
+	any of it.
+	"""
+	from orbit.connect import site_url
+
+	return Response(
+		json.dumps(
+			{
+				"jsonrpc": "2.0",
+				"id": None,
+				"error": {
+					"code": -32001,
+					"message": "Authentication required. Authorise against this site, or send an API key.",
+				},
+			}
+		),
+		status=401,
+		content_type=CONTENT_TYPE,
+		headers={
+			"WWW-Authenticate": (
+				'Bearer realm="Orbit", '
+				f'resource_metadata="{site_url()}/.well-known/oauth-protected-resource"'
+			)
+		},
+	)
+
+
+@frappe.whitelist(allow_guest=True, methods=["POST", "GET", "DELETE"])
 def mcp() -> Response:
 	"""Streamable HTTP, without the stream.
 
@@ -51,6 +92,13 @@ def mcp() -> Response:
 	way to say "this server does not offer a stream" — an error page there presents to
 	the user as a broken connector.
 	"""
+	# `allow_guest` is on so that an unauthenticated request reaches this function at all
+	# — Frappe's own 403 page carries no `WWW-Authenticate` header, and without that
+	# header no client can discover how to sign in. Nothing else happens for a Guest: the
+	# body is not read, no policy is loaded, no query runs.
+	if frappe.session.user == "Guest":
+		return _unauthorized()
+
 	method = (frappe.request.method or "POST").upper()
 
 	if method == "GET":

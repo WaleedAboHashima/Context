@@ -17,3 +17,9 @@ app_license = "MIT"
 # people are right to be wary of installing on a production ERP.
 
 after_install = "orbit.install.after_install"
+
+# The MCP endpoint answers an unauthenticated request with 401 plus a
+# `WWW-Authenticate` header naming the site's OAuth metadata, which is what lets a
+# client offer a Connect button instead of a form. The metadata itself is served by
+# Frappe (`frappe.integrations.oauth2.handle_wellknown`), so there is no route to add
+# here — see `orbit/connect.py`.
