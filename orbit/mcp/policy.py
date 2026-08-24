@@ -89,7 +89,12 @@ class Policy:
 		self.log_tool_calls = bool(settings.log_tool_calls)
 		self.log_arguments = bool(settings.log_arguments)
 
-		self._allowed = {name.lower() for name in _split(settings.allowed_doctypes)}
+		# Kept twice on purpose: the lower-cased set is what comparisons use, and the
+		# list as written is what a human is shown. Reporting the normalised form back to
+		# an administrator ("limited to sales invoice") makes correct configuration look
+		# like a typo.
+		self._allowed_as_written = _split(settings.allowed_doctypes)
+		self._allowed = {name.lower() for name in self._allowed_as_written}
 		self._denied = NEVER_WRITE | {name.lower() for name in _split(settings.denied_doctypes)}
 
 	# -- gates ---------------------------------------------------------------
@@ -126,7 +131,7 @@ class Policy:
 			_(
 				"{0} is outside the scope configured for Orbit on this site. "
 				"Allowed: {1}. An administrator can widen it in Orbit Settings."
-			).format(doctype, ", ".join(sorted(self._allowed))),
+			).format(doctype, ", ".join(self._allowed_as_written)),
 			OrbitDenied,
 		)
 
@@ -193,7 +198,7 @@ class Policy:
 	def describe(self) -> str:
 		"""Told to the agent once, so it does not discover the limits by hitting them."""
 		scope = (
-			", limited to " + ", ".join(sorted(self._allowed))
+			", limited to " + ", ".join(self._allowed_as_written)
 			if self._allowed
 			else " (whatever this user is permitted to read)"
 		)
